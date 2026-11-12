@@ -5,7 +5,7 @@
     <string name="tab_recipes">Recetas</string>
     <string name="tab_ingredients">Ingredientes</string>
     <string name="tab_settings">Ajustes</string>
-    <string name="recipes_placeholder">Tus escandallos aparecerán aquí.</string>
+    <string name="recipes_placeholder">Tus escandallos aparecerán aquí. Pulsa + para crear uno.</string>
     <string name="settings_placeholder">Los ajustes aparecerán aquí.</string>
 
     <!-- Acciones comunes -->
@@ -35,6 +35,9 @@
     <string name="error_number">Escribe un número, por ejemplo 22,50</string>
     <string name="error_quantity_zero">La cantidad debe ser mayor que 0</string>
     <string name="error_waste_range">La merma debe estar entre 0 y 99 %</string>
+    <string name="error_no_lines">Añade al menos un ingrediente</string>
+    <string name="error_pick_ingredient">Elige un ingrediente de la lista</string>
+    <string name="error_unit_mismatch">Esta unidad no es compatible con el ingrediente</string>
     <string name="error_ingredient_duplicate">Ya hay un ingrediente con este nombre</string>
 
     <!-- Catálogo de ingredientes -->
@@ -65,4 +68,32 @@
     <string name="ingredient_delete_message">«%1$s» se borrará del catálogo.</string>
     <string name="delete_blocked_title">No se puede borrar</string>
     <string name="ingredient_delete_blocked_message">Este ingrediente se usa en estas recetas. Quítalo de ellas antes de borrarlo.</string>
+
+    <!-- Editor de escandallo -->
+    <string name="recipe_new">Nuevo escandallo</string>
+    <string name="recipe_edit">Editar escandallo</string>
+    <string name="recipe_name">Título</string>
+    <string name="recipe_yield">Rendimiento</string>
+    <string name="recipe_ingredients">Ingredientes</string>
+    <string name="recipe_add_ingredient">Añadir ingrediente</string>
+    <string name="line_ingredient">Ingrediente</string>
+    <string name="line_quantity">Cantidad</string>
+    <string name="line_waste">Merma</string>
+    <string name="totals_batch">Lote</string>
+    <string name="totals_unit">Unidad</string>
+    <string name="totals_raw_material">Materia prima</string>
+    <string name="totals_extras">Extras</string>
+    <string name="totals_cost">Coste</string>
+    <string name="pricing_title">Precio de venta</string>
+    <string name="pricing_hint">Escribe uno de los tres datos y se calculan los otros dos.</string>
+    <string name="pricing_net_price">Precio neto por unidad</string>
+    <string name="pricing_markup">Incremento</string>
+    <string name="pricing_food_cost">Food cost</string>
+    <string name="result_margin">Margen</string>
+    <string name="result_profit_unit">Beneficio por unidad</string>
+    <string name="result_profit_batch">Beneficio por lote</string>
+    <string name="result_food_cost">Food cost: %1$s</string>
+    <string name="margin_good">Bueno</string>
+    <string name="margin_fair">Justo</string>
+    <string name="margin_low">Bajo</string>
 </resources>

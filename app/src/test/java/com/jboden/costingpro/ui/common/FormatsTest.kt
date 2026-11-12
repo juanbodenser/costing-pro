@@ -49,6 +49,14 @@ class FormatsTest {
         assertEquals("1,255", Formats.number(1.255, minDecimals = 2))
     }
 
+    @Test
+    fun `percent and plain use the decimal comma`() {
+        assertEquals("82,0 %", Formats.percent(BigDecimal("82.0")))
+        assertEquals("456,3 %", Formats.percent(BigDecimal("456.2962")))
+        assertEquals("0,18", Formats.plain(BigDecimal("0.17975"), 2))
+        assertEquals("0,0", Formats.plain(BigDecimal("-0.04"), 1))
+    }
+
     /** Phase 3 criterion: "Harina, 25 kg a 22,50 €" shows 0,90 €/kg. */
     @Test
     fun `flour typed with a comma costs 0,90 euros per kilo`() {

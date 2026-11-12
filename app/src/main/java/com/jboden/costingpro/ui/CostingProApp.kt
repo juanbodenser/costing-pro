@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -39,6 +40,8 @@ import com.jboden.costingpro.ui.ingredients.IngredientEditScreen
 import com.jboden.costingpro.ui.ingredients.IngredientEditViewModel
 import com.jboden.costingpro.ui.ingredients.IngredientListScreen
 import com.jboden.costingpro.ui.ingredients.IngredientListViewModel
+import com.jboden.costingpro.ui.recipes.RecipeEditScreen
+import com.jboden.costingpro.ui.recipes.RecipeEditViewModel
 
 private object Routes {
     const val RECIPES = "recipes"
@@ -50,6 +53,12 @@ private object Routes {
 
     /** @param id the ingredient to edit, or [IngredientEditViewModel.NEW_ID] to create one. */
     fun ingredient(id: Long) = "ingredient/$id"
+
+    const val RECIPE_ID = "recipeId"
+    const val RECIPE = "recipe/{$RECIPE_ID}"
+
+    /** @param id the recipe to edit, or [RecipeEditViewModel.NEW_ID] to create one. */
+    fun recipe(id: Long) = "recipe/$id"
 }
 
 /** The three tabs of the bottom bar. */
@@ -98,7 +107,13 @@ fun CostingProApp(container: AppContainer) {
                 .consumeWindowInsets(innerPadding),
         ) {
             composable(Routes.RECIPES) {
-                PlaceholderScreen(title = R.string.tab_recipes, message = R.string.recipes_placeholder)
+                // The real list arrives in phase 5; until then the button is the way into the editor.
+                PlaceholderScreen(
+                    title = R.string.tab_recipes,
+                    message = R.string.recipes_placeholder,
+                    onAdd = { navController.navigate(Routes.recipe(RecipeEditViewModel.NEW_ID)) },
+                    addDescription = R.string.recipe_new,
+                )
             }
             composable(Routes.INGREDIENTS) {
                 val viewModel: IngredientListViewModel =
@@ -111,6 +126,25 @@ fun CostingProApp(container: AppContainer) {
             }
             composable(Routes.SETTINGS) {
                 PlaceholderScreen(title = R.string.tab_settings, message = R.string.settings_placeholder)
+            }
+            composable(
+                route = Routes.RECIPE,
+                arguments = listOf(navArgument(Routes.RECIPE_ID) { type = NavType.LongType }),
+            ) { entry ->
+                val recipeId = entry.arguments?.getLong(Routes.RECIPE_ID) ?: RecipeEditViewModel.NEW_ID
+                val viewModel: RecipeEditViewModel = viewModel(
+                    factory = RecipeEditViewModel.factory(
+                        container.recipeRepository,
+                        container.ingredientRepository,
+                        recipeId,
+                    ),
+                )
+                RecipeEditScreen(
+                    viewModel = viewModel,
+                    onDone = {
+                        if (entry.lifecycle.currentState == Lifecycle.State.RESUMED) navController.popBackStack()
+                    },
+                )
             }
             composable(
                 route = Routes.INGREDIENT,
@@ -142,8 +176,26 @@ private fun NavHostController.switchTab(tab: Tab) {
 
 /** Stands in for a tab whose screen belongs to a later phase. */
 @Composable
-private fun PlaceholderScreen(@StringRes title: Int, @StringRes message: Int) {
-    Scaffold(topBar = { CostingTopBar(title = stringResource(title)) }) { innerPadding ->
+private fun PlaceholderScreen(
+    @StringRes title: Int,
+    @StringRes message: Int,
+    onAdd: (() -> Unit)? = null,
+    @StringRes addDescription: Int = 0,
+) {
+    Scaffold(
+        topBar = { CostingTopBar(title = stringResource(title)) },
+        floatingActionButton = {
+            if (onAdd != null) {
+                FloatingActionButton(
+                    onClick = onAdd,
+                    containerColor = MaterialTheme.colorScheme.secondary,
+                    contentColor = MaterialTheme.colorScheme.onSecondary,
+                ) {
+                    Icon(painterResource(R.drawable.ic_add), contentDescription = stringResource(addDescription))
+                }
+            }
+        },
+    ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()

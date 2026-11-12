@@ -25,6 +25,13 @@ object Formats {
         return format.format(amount) + NBSP + "€"
     }
 
+    /** The value rounded half up to [scale] decimals, with decimal comma and no grouping or symbol: "456,3". */
+    fun plain(value: BigDecimal, scale: Int): String =
+        value.setScale(scale, RoundingMode.HALF_UP).toPlainString().replace('.', ',')
+
+    /** "82,0 %": one decimal, and the percent sign after a non-breaking space. */
+    fun percent(value: BigDecimal): String = plain(value, 1) + NBSP + "%"
+
     /**
      * Parses what the user typed in a numeric field. Comma and dot both work as decimal
      * separator; thousands separators and negative numbers are not accepted.
