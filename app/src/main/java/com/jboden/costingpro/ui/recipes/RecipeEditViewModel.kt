@@ -11,8 +11,10 @@ import com.jboden.costingpro.data.IngredientRepository
 import com.jboden.costingpro.data.Recipe
 import com.jboden.costingpro.data.RecipeLine
 import com.jboden.costingpro.data.RecipeRepository
+import com.jboden.costingpro.data.RecipeWithDetails
 import com.jboden.costingpro.domain.MeasureUnit
 import com.jboden.costingpro.domain.PricingMode
+import com.jboden.costingpro.domain.RecipeGraph
 import com.jboden.costingpro.ui.common.Formats
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,18 +24,26 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** An ingredient the autocomplete can offer. */
-data class CatalogueItem(val id: Long, val name: String)
+/** An ingredient or a recipe the autocomplete can offer. Ids are only unique within their kind. */
+data class CatalogueItem(val id: Long, val name: String, val isRecipe: Boolean = false)
+
+/** What the screen needs to draw one row besides its form values. */
+data class RowInfo(
+    /** Units the row can be measured in, given what it is made of. */
+    val units: List<MeasureUnit>,
+    /** The row uses another recipe. */
+    val isRecipe: Boolean,
+)
 
 data class RecipeEditUiState(
     val isNew: Boolean,
     val loading: Boolean,
     val form: RecipeForm,
     val result: EditorResult,
-    /** All catalogue ingredients, by name. */
+    /** Ingredients and the recipes that can be used here, by name. */
     val catalogue: List<CatalogueItem>,
-    /** Ingredient of each row, to offer its units; same order as the form rows. */
-    val rowIngredients: List<Ingredient?>,
+    /** Same order as the form rows. */
+    val rows: List<RowInfo>,
     /** Errors to show. Null until the user has tried to save. */
     val errors: Validation?,
     val saving: Boolean,
@@ -67,6 +77,9 @@ class RecipeEditViewModel(
     /** Null until the catalogue has been read. */
     private val catalogue = MutableStateFlow<List<Ingredient>?>(null)
 
+    /** All stored recipes, to offer them as sub-recipes. Null until they have been read. */
+    private val allRecipes = MutableStateFlow<List<RecipeWithDetails>?>(null)
+
     private var nextKey = 2L
 
     /** The stored recipe being edited. Keeps what the editor does not show: VAT, photo, notes and dates. */
@@ -75,18 +88,21 @@ class RecipeEditViewModel(
     /** The stored extra costs. The editor does not show them yet; they are counted and saved back unchanged. */
     private var extras: List<ExtraCost> = emptyList()
 
-    val uiState: StateFlow<RecipeEditUiState> = combine(draft, catalogue) { draft, catalogue ->
+    val uiState: StateFlow<RecipeEditUiState> = combine(draft, catalogue, allRecipes) { draft, catalogue, stored ->
         val all = catalogue.orEmpty()
         val byId = all.associateBy { it.id }
+        val recipesById = stored.orEmpty().associateBy { it.recipe.id }
         val form = draft.form
         RecipeEditUiState(
             isNew = recipeId == NEW_ID,
-            loading = draft.loading || catalogue == null,
+            loading = draft.loading || catalogue == null || stored == null,
             form = form,
-            result = RecipeEditorLogic.derive(form, byId, extras, vatPct()),
-            catalogue = all.map { CatalogueItem(it.id, it.name) },
-            rowIngredients = form.lines.map { line -> line.ingredientId?.let(byId::get) },
-            errors = if (draft.attempted) RecipeEditorLogic.validate(form, byId) else null,
+            result = RecipeEditorLogic.derive(form, byId, extras, vatPct(), recipesById, recipeId),
+            catalogue = items(all, stored.orEmpty()),
+            rows = form.lines.map { line ->
+                RowInfo(RecipeEditorLogic.unitsFor(line, byId, recipesById), isRecipe = line.subRecipeId != null)
+            },
+            errors = if (draft.attempted) RecipeEditorLogic.validate(form, byId, recipesById, recipeId) else null,
             saving = draft.saving,
             finished = draft.finished,
         )
@@ -99,7 +115,7 @@ class RecipeEditViewModel(
             form = RecipeForm(),
             result = RecipeEditorLogic.derive(RecipeForm(), emptyMap(), emptyList(), Recipe.DEFAULT_VAT_PCT),
             catalogue = emptyList(),
-            rowIngredients = emptyList(),
+            rows = emptyList(),
             errors = null,
             saving = false,
             finished = false,
@@ -108,6 +124,7 @@ class RecipeEditViewModel(
 
     init {
         viewModelScope.launch { ingredients.observeAll().collect { catalogue.value = it } }
+        viewModelScope.launch { recipes.observeAll().collect { allRecipes.value = it } }
         if (recipeId != NEW_ID) {
             viewModelScope.launch {
                 val details = recipes.get(recipeId)
@@ -117,13 +134,15 @@ class RecipeEditViewModel(
                 }
                 original = details.recipe
                 extras = details.extras
-                // Sub-recipe rows cannot be made yet (phase 6), so there are none to keep here.
                 val lines = details.lines.mapNotNull { line ->
-                    val ingredient = line.ingredientId?.let { ingredients.get(it) } ?: return@mapNotNull null
+                    val ingredient = line.ingredientId?.let { ingredients.get(it) }
+                    val subRecipe = line.subRecipeId?.let { recipes.get(it) }
+                    val query = ingredient?.name ?: subRecipe?.recipe?.name ?: return@mapNotNull null
                     LineForm(
                         key = nextKey++,
-                        ingredientId = ingredient.id,
-                        query = ingredient.name,
+                        ingredientId = ingredient?.id,
+                        subRecipeId = subRecipe?.recipe?.id,
+                        query = query,
                         quantity = Formats.number(line.quantity),
                         unit = line.unit,
                         waste = wasteText(line.wastePct),
@@ -157,6 +176,20 @@ class RecipeEditViewModel(
 
     private fun wasteText(pct: Double) = if (pct == 0.0) "" else Formats.number(pct)
 
+    /**
+     * What the autocomplete offers: every ingredient, and every recipe except this one and the
+     * ones that contain it (using them here would make a recipe contain itself).
+     */
+    private fun items(ingredients: List<Ingredient>, stored: List<RecipeWithDetails>): List<CatalogueItem> {
+        val cannotUse = RecipeGraph.cannotBeUsedIn(recipeId, RecipeEditorLogic.subRecipeGraph(stored.associateBy { it.recipe.id }))
+        return (
+            ingredients.map { CatalogueItem(it.id, it.name) } +
+                stored.filter { it.recipe.id !in cannotUse }.map { CatalogueItem(it.recipe.id, it.recipe.name, isRecipe = true) }
+            ).sortedBy { it.name.lowercase() }
+    }
+
+    private fun currentItems(): List<CatalogueItem> = items(catalogue.value.orEmpty(), allRecipes.value.orEmpty())
+
     private fun updateForm(change: (RecipeForm) -> RecipeForm) = draft.update { it.copy(form = change(it.form)) }
 
     private fun updateLine(key: Long, change: (LineForm) -> LineForm) = updateForm { form ->
@@ -174,22 +207,22 @@ class RecipeEditViewModel(
     fun removeLine(key: Long) = updateForm { form -> form.copy(lines = form.lines.filterNot { it.key == key }) }
 
     /**
-     * The user typed in the ingredient field. A name that matches a catalogue ingredient
-     * selects it; anything else leaves the row without ingredient until one is picked.
+     * The user typed in the ingredient field. A name that matches exactly one ingredient or
+     * recipe selects it; anything else leaves the row without a source until one is picked.
      */
     fun onQueryChange(key: Long, text: String) = updateLine(key) { line ->
-        val match = catalogue.value.orEmpty().firstOrNull { it.name.equals(text.trim(), ignoreCase = true) }
+        val matches = currentItems().filter { it.name.equals(text.trim(), ignoreCase = true) }
+        val match = matches.singleOrNull()
         when {
-            match == null -> line.copy(query = text, ingredientId = null)
-            match.id == line.ingredientId -> line.copy(query = text)
+            match == null -> line.copy(query = text, ingredientId = null, subRecipeId = null)
+            line.isSelected(match) -> line.copy(query = text)
             else -> select(line, match, text)
         }
     }
 
-    /** The user picked an ingredient from the suggestions. */
-    fun onIngredientPicked(key: Long, ingredientId: Long) {
-        val ingredient = catalogue.value.orEmpty().firstOrNull { it.id == ingredientId } ?: return
-        updateLine(key) { select(it, ingredient, ingredient.name) }
+    /** The user picked an ingredient or recipe from the suggestions. */
+    fun onItemPicked(key: Long, item: CatalogueItem) {
+        updateLine(key) { select(it, item, item.name) }
     }
 
     fun onLineQuantityChange(key: Long, value: String) = updateLine(key) { it.copy(quantity = value) }
@@ -205,20 +238,41 @@ class RecipeEditViewModel(
     fun onFoodCostChange(value: String) =
         updateForm { it.copy(pricingMode = PricingMode.FOOD_COST, pricingText = value) }
 
-    /** Proposes the ingredient's usual unit and waste, keeping the current unit if it still fits. */
-    private fun select(line: LineForm, ingredient: Ingredient, query: String): LineForm = line.copy(
-        ingredientId = ingredient.id,
-        query = query,
-        unit = line.unit.takeIf { it in RecipeEditorLogic.unitsFor(ingredient) } ?: RecipeEditorLogic.defaultUnit(ingredient),
-        waste = wasteText(ingredient.defaultWastePct),
-    )
+    private fun LineForm.isSelected(item: CatalogueItem) =
+        if (item.isRecipe) subRecipeId == item.id else ingredientId == item.id
+
+    /**
+     * Makes [item] the source of the row. Proposes the usual waste of an ingredient and a unit of the
+     * right kind, keeping the current unit if it still fits.
+     */
+    private fun select(line: LineForm, item: CatalogueItem, query: String): LineForm {
+        val sourceUnit: MeasureUnit
+        val waste: String
+        if (item.isRecipe) {
+            val recipe = allRecipes.value.orEmpty().firstOrNull { it.recipe.id == item.id } ?: return line
+            sourceUnit = recipe.recipe.yieldUnit
+            waste = ""
+        } else {
+            val ingredient = catalogue.value.orEmpty().firstOrNull { it.id == item.id } ?: return line
+            sourceUnit = ingredient.purchaseUnit
+            waste = wasteText(ingredient.defaultWastePct)
+        }
+        return line.copy(
+            ingredientId = item.id.takeIf { !item.isRecipe },
+            subRecipeId = item.id.takeIf { item.isRecipe },
+            query = query,
+            unit = line.unit.takeIf { it in RecipeEditorLogic.unitsFor(sourceUnit) } ?: RecipeEditorLogic.defaultUnit(sourceUnit),
+            waste = waste,
+        )
+    }
 
     fun save() {
         val current = draft.value
         if (current.loading || current.saving || current.finished) return
 
         val byId = catalogue.value.orEmpty().associateBy { it.id }
-        val validation = RecipeEditorLogic.validate(current.form, byId)
+        val recipesById = allRecipes.value.orEmpty().associateBy { it.recipe.id }
+        val validation = RecipeEditorLogic.validate(current.form, byId, recipesById, recipeId)
         if (!validation.ok) {
             draft.update { it.copy(attempted = true) }
             return
@@ -239,6 +293,7 @@ class RecipeEditViewModel(
         val lines = validation.lines.map { line ->
             RecipeLine(
                 ingredientId = line.ingredientId,
+                subRecipeId = line.subRecipeId,
                 quantity = Formats.parseDecimal(line.quantity)!!.toDouble(),
                 unit = line.unit,
                 wastePct = if (line.waste.isBlank()) 0.0 else Formats.parseDecimal(line.waste)!!.toDouble(),

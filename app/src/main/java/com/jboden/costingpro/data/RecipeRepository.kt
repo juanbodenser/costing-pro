@@ -1,5 +1,6 @@
 package com.jboden.costingpro.data
 
+import com.jboden.costingpro.domain.RecipeGraph
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -24,7 +25,8 @@ class RecipeRepository(
      * and returns its id. Lines are stored in the order given.
      *
      * @throws IllegalArgumentException if a line does not have exactly one of
-     * ingredient and sub-recipe, or uses the recipe itself as sub-recipe.
+     * ingredient and sub-recipe, or the recipe would end up containing itself,
+     * directly or through other recipes.
      */
     suspend fun save(recipe: Recipe, lines: List<RecipeLine>, extras: List<ExtraCost>): Long {
         lines.forEach { line ->
@@ -35,6 +37,7 @@ class RecipeRepository(
                 "A recipe cannot contain itself"
             }
         }
+        checkNoCycle(recipe.id, lines)
         val timestamp = now()
         val createdAt = if (recipe.id == 0L) timestamp else dao.getCreatedAt(recipe.id) ?: timestamp
         return dao.save(
@@ -80,6 +83,20 @@ class RecipeRepository(
         if (recipes.isNotEmpty()) return DeleteResult.InUse(recipes)
         dao.deleteById(recipeId)
         return DeleteResult.Deleted
+    }
+
+    /** The new lines of [recipeId] must not close a loop with the sub-recipe uses already stored. */
+    private suspend fun checkNoCycle(recipeId: Long, lines: List<RecipeLine>) {
+        val subIds = lines.mapNotNull { it.subRecipeId }.toSet()
+        if (recipeId == RecipeGraph.NO_RECIPE || subIds.isEmpty()) return
+        // The stored lines of this recipe are about to be replaced, so they do not count.
+        val others = dao.getSubRecipeEdges()
+            .filter { it.recipeId != recipeId }
+            .groupBy({ it.recipeId }, { it.subRecipeId })
+            .mapValues { it.value.toSet() }
+        require(subIds.none { RecipeGraph.wouldCreateCycle(recipeId, it, others) }) {
+            "A recipe cannot contain itself, directly or through other recipes"
+        }
     }
 
     private fun RecipeWithDetails.sorted() = copy(

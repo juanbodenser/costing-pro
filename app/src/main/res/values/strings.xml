@@ -37,6 +37,7 @@
     <string name="error_no_lines">Añade al menos un ingrediente</string>
     <string name="error_pick_ingredient">Elige un ingrediente de la lista</string>
     <string name="error_unit_mismatch">Esta unidad no es compatible con el ingrediente</string>
+    <string name="error_cycle">Esta receta no se puede usar aquí: acabaría conteniéndose a sí misma</string>
     <string name="error_ingredient_duplicate">Ya hay un ingrediente con este nombre</string>
 
     <!-- Catálogo de ingredientes -->
@@ -76,6 +77,8 @@
     <string name="recipe_ingredients">Ingredientes</string>
     <string name="recipe_add_ingredient">Añadir ingrediente</string>
     <string name="line_ingredient">Ingrediente</string>
+    <string name="line_sub_recipe">Subreceta</string>
+    <string name="suggestion_recipe">Receta</string>
     <string name="line_quantity">Cantidad</string>
     <string name="line_waste">Merma</string>
     <string name="totals_batch">Lote</string>

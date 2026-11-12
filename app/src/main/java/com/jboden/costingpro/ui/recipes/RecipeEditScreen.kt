@@ -60,7 +60,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jboden.costingpro.R
-import com.jboden.costingpro.data.Ingredient
 import com.jboden.costingpro.domain.LineIssue
 import com.jboden.costingpro.domain.MarginStatus
 import com.jboden.costingpro.domain.MeasureUnit
@@ -140,11 +139,11 @@ fun RecipeEditScreen(
                     LineCard(
                         line = line,
                         result = state.result.lines[row],
-                        ingredient = state.rowIngredients[row],
+                        info = state.rows[row],
                         errors = errors?.rowErrors?.get(line.key),
                         catalogue = state.catalogue,
                         onQueryChange = { viewModel.onQueryChange(line.key, it) },
-                        onPick = { viewModel.onIngredientPicked(line.key, it) },
+                        onPick = { viewModel.onItemPicked(line.key, it) },
                         onQuantityChange = { viewModel.onLineQuantityChange(line.key, it) },
                         onUnitChange = { viewModel.onLineUnitChange(line.key, it) },
                         onWasteChange = { viewModel.onLineWasteChange(line.key, it) },
@@ -226,11 +225,11 @@ private fun YieldRow(
 private fun LineCard(
     line: LineForm,
     result: LineResult,
-    ingredient: Ingredient?,
+    info: RowInfo,
     errors: RowErrors?,
     catalogue: List<CatalogueItem>,
     onQueryChange: (String) -> Unit,
-    onPick: (Long) -> Unit,
+    onPick: (CatalogueItem) -> Unit,
     onQuantityChange: (String) -> Unit,
     onUnitChange: (MeasureUnit) -> Unit,
     onWasteChange: (String) -> Unit,
@@ -282,6 +281,7 @@ private fun LineCard(
                     error = errors?.ingredient,
                     catalogue = catalogue,
                     onQueryChange = onQueryChange,
+                    isRecipe = info.isRecipe,
                     onPick = onPick,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
@@ -294,7 +294,7 @@ private fun LineCard(
                     )
                     UnitDropdown(
                         selected = line.unit,
-                        units = RecipeEditorLogic.unitsFor(ingredient),
+                        units = info.units,
                         onSelect = onUnitChange,
                         modifier = Modifier.weight(0.8f),
                     )
@@ -326,8 +326,9 @@ private fun IngredientField(
     line: LineForm,
     error: FieldError?,
     catalogue: List<CatalogueItem>,
+    isRecipe: Boolean,
     onQueryChange: (String) -> Unit,
-    onPick: (Long) -> Unit,
+    onPick: (CatalogueItem) -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
     val suggestions = remember(catalogue, line.query) {
@@ -343,7 +344,16 @@ private fun IngredientField(
                 .fillMaxWidth()
                 .onFocusChanged { focused = it.isFocused },
             label = { Text(stringResource(R.string.line_ingredient)) },
-            supportingText = error?.let { { Text(stringResource(it.messageRes())) } },
+            supportingText = when {
+                error != null -> {
+                    { Text(stringResource(error.messageRes())) }
+                }
+                // A row that uses another recipe says so, in the colour of sub-recipes.
+                isRecipe -> {
+                    { Text(stringResource(R.string.line_sub_recipe), color = MaterialTheme.colorScheme.tertiary) }
+                }
+                else -> null
+            },
             isError = error != null,
             singleLine = true,
             keyboardOptions = KeyboardOptions(
@@ -352,7 +362,7 @@ private fun IngredientField(
             ),
             colors = costingFieldColors(),
         )
-        if (focused && line.ingredientId == null && suggestions.isNotEmpty()) {
+        if (focused && !line.hasSource && suggestions.isNotEmpty()) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -363,14 +373,23 @@ private fun IngredientField(
             ) {
                 suggestions.forEachIndexed { index, item ->
                     if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-                    Text(
-                        text = item.name,
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onPick(item.id) }
+                            .clickable { onPick(item) }
                             .padding(horizontal = 16.dp, vertical = 12.dp),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(text = item.name, style = MaterialTheme.typography.bodyLarge)
+                        if (item.isRecipe) {
+                            Text(
+                                text = stringResource(R.string.suggestion_recipe),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.tertiary,
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -619,4 +638,5 @@ private fun FieldError.messageRes(): Int = when (this) {
     FieldError.WASTE_RANGE -> R.string.error_waste_range
     FieldError.NOT_IN_CATALOGUE -> R.string.error_pick_ingredient
     FieldError.UNIT_MISMATCH -> R.string.error_unit_mismatch
+    FieldError.CYCLE -> R.string.error_cycle
 }

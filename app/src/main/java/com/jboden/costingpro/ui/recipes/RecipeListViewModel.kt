@@ -32,7 +32,8 @@ class RecipeListViewModel(recipes: RecipeRepository, ingredients: IngredientRepo
         combine(recipes.observeAll(), ingredients.observeAll(), query) { stored, catalogue, query ->
             val byId = catalogue.associateBy { it.id }
             val needle = query.searchKey()
-            val all = stored.map { RecipeSummaryLogic.summarize(it, byId) }
+            val recipesById = stored.associateBy { it.recipe.id }
+            val all = stored.map { RecipeSummaryLogic.summarize(it, byId, recipesById) }
             RecipeListUiState(
                 loading = false,
                 query = query,

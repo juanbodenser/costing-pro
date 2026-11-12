@@ -58,10 +58,12 @@ class RecipeDetailViewModel(
     private val local = MutableStateFlow(Local())
 
     val uiState: StateFlow<RecipeDetailUiState> =
-        combine(recipes.observe(recipeId), ingredients.observeAll(), local) { stored, catalogue, local ->
+        combine(recipes.observeAll(), ingredients.observeAll(), local) { allRecipes, catalogue, local ->
+            // All recipes are observed, not just this one: a change in a sub-recipe changes this cost.
+            val byId = allRecipes.associateBy { it.recipe.id }
             RecipeDetailUiState(
                 loading = false,
-                summary = stored?.let { RecipeSummaryLogic.summarize(it, catalogue.associateBy { it.id }) },
+                summary = byId[recipeId]?.let { RecipeSummaryLogic.summarize(it, catalogue.associateBy { it.id }, byId) },
                 sortByCost = local.sortByCost,
                 photoOptionsOpen = local.photoOptionsOpen,
                 confirmingDelete = local.confirmingDelete,

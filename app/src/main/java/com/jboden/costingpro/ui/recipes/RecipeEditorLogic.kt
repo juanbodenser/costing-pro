@@ -2,6 +2,7 @@ package com.jboden.costingpro.ui.recipes
 
 import com.jboden.costingpro.data.ExtraCost
 import com.jboden.costingpro.data.Ingredient
+import com.jboden.costingpro.data.RecipeWithDetails
 import com.jboden.costingpro.data.toPrice
 import com.jboden.costingpro.domain.CostCalculator
 import com.jboden.costingpro.domain.ExtraCostInput
@@ -15,6 +16,7 @@ import com.jboden.costingpro.domain.PriceResult
 import com.jboden.costingpro.domain.Pricing
 import com.jboden.costingpro.domain.PricingMode
 import com.jboden.costingpro.domain.RecipeCost
+import com.jboden.costingpro.domain.RecipeGraph
 import com.jboden.costingpro.domain.RecipeInput
 import com.jboden.costingpro.ui.common.Formats
 import java.math.BigDecimal
@@ -22,7 +24,10 @@ import java.math.BigDecimal
 // Pure Kotlin on purpose: everything the recipe editor computes or validates is here, tested on the JVM.
 // The maths itself stays in CostCalculator; this file only turns form text into its inputs and back.
 
-/** One row of the editor, with every number as the user typed it. */
+/**
+ * One row of the editor, with every number as the user typed it.
+ * A row uses an ingredient ([ingredientId]) or another recipe ([subRecipeId]), never both.
+ */
 data class LineForm(
     /** Identifies the row on screen; not stored. */
     val key: Long,
@@ -32,9 +37,13 @@ data class LineForm(
     val quantity: String = "",
     val unit: MeasureUnit = MeasureUnit.G,
     val waste: String = "",
+    val subRecipeId: Long? = null,
 ) {
     /** Nothing typed or chosen: a row the user added but never used. */
-    val isEmpty: Boolean get() = ingredientId == null && query.isBlank() && quantity.isBlank()
+    val isEmpty: Boolean get() = ingredientId == null && subRecipeId == null && query.isBlank() && quantity.isBlank()
+
+    /** An ingredient or a recipe has been chosen. */
+    val hasSource: Boolean get() = ingredientId != null || subRecipeId != null
 }
 
 data class RecipeForm(
@@ -71,7 +80,7 @@ data class EditorResult(
     val status: MarginStatus?,
 )
 
-enum class FieldError { REQUIRED, NUMBER, QUANTITY_ZERO, WASTE_RANGE, NOT_IN_CATALOGUE, UNIT_MISMATCH }
+enum class FieldError { REQUIRED, NUMBER, QUANTITY_ZERO, WASTE_RANGE, NOT_IN_CATALOGUE, UNIT_MISMATCH, CYCLE }
 
 data class RowErrors(
     val ingredient: FieldError? = null,
@@ -94,41 +103,74 @@ data class Validation(
     val ok: Boolean get() = nameError == null && !noLines && rowErrors.isEmpty()
 }
 
+/** What a row is made of, once found in the catalogue or among the recipes. */
+private sealed interface Source {
+    /** Unit the source is priced in; the row unit must be of the same magnitude. */
+    val unit: MeasureUnit
+
+    class OfIngredient(val ingredient: Ingredient) : Source {
+        override val unit get() = ingredient.purchaseUnit
+    }
+
+    class OfRecipe(val recipe: RecipeWithDetails) : Source {
+        override val unit get() = recipe.recipe.yieldUnit
+    }
+}
+
 object RecipeEditorLogic {
 
     /** Highest waste a row accepts (PLAN.md: 0 to 99). */
     private val MAX_WASTE_PCT = BigDecimal(99)
 
-    /** Unit proposed when an ingredient is picked: grams, millilitres or units. */
-    fun defaultUnit(ingredient: Ingredient): MeasureUnit = when (ingredient.purchaseUnit.magnitude) {
+    /** Unit proposed when an ingredient or recipe priced in [unit] is picked: g, ml, ud or ración. */
+    fun defaultUnit(unit: MeasureUnit): MeasureUnit = when (unit.magnitude) {
         Magnitude.MASS -> MeasureUnit.G
         Magnitude.VOLUME -> MeasureUnit.ML
-        else -> MeasureUnit.UD
+        Magnitude.COUNT -> MeasureUnit.UD
+        Magnitude.PORTION -> MeasureUnit.RACION
     }
 
-    /** Units a row can use: those of the ingredient's magnitude, or all but the portion if there is none yet. */
+    fun defaultUnit(ingredient: Ingredient): MeasureUnit = defaultUnit(ingredient.purchaseUnit)
+
+    /** Units a row can use for a source priced in [sourceUnit]: those of its magnitude. */
+    fun unitsFor(sourceUnit: MeasureUnit): List<MeasureUnit> =
+        MeasureUnit.entries.filter { it.magnitude == sourceUnit.magnitude }
+
+    /** Units a row can use for [ingredient], or all but the portion if no source has been chosen yet. */
     fun unitsFor(ingredient: Ingredient?): List<MeasureUnit> =
-        if (ingredient == null) {
-            MeasureUnit.entries.filter { it != MeasureUnit.RACION }
-        } else {
-            MeasureUnit.entries.filter { it.magnitude == ingredient.purchaseUnit.magnitude }
-        }
+        if (ingredient == null) MeasureUnit.entries.filter { it != MeasureUnit.RACION } else unitsFor(ingredient.purchaseUnit)
+
+    /**
+     * Units a row can use, given what it is made of: the ingredient or recipe it has, or all
+     * but the portion while it has none.
+     */
+    fun unitsFor(line: LineForm, catalogue: Map<Long, Ingredient>, recipes: Map<Long, RecipeWithDetails>): List<MeasureUnit> =
+        source(line, catalogue, recipes)?.let { unitsFor(it.unit) } ?: unitsFor(null as Ingredient?)
+
+    /** The sub-recipe uses stored: recipe id to the ids of the recipes it uses. */
+    fun subRecipeGraph(recipes: Map<Long, RecipeWithDetails>): Map<Long, Set<Long>> =
+        recipes.mapValues { (_, details) -> details.lines.mapNotNull { it.subRecipeId }.toSet() }
 
     /**
      * Costs, price fields and margin for the current form.
      *
      * @param extras the recipe's stored extra costs; the editor does not show them yet but they count.
+     * @param recipes all stored recipes, for rows that use a recipe.
+     * @param selfId the recipe being edited (0 if new): it cannot be used as a sub-recipe of itself.
      */
     fun derive(
         form: RecipeForm,
         catalogue: Map<Long, Ingredient>,
         extras: List<ExtraCost>,
         vatPct: Double,
+        recipes: Map<Long, RecipeWithDetails> = emptyMap(),
+        selfId: Long = RecipeGraph.NO_RECIPE,
     ): EditorResult {
         val inputs = mutableListOf<LineInput>()
         // For each row, its position among the inputs, or null if the row is not complete yet.
         val inputIndex = form.lines.map { line ->
-            lineInput(line, line.ingredientId?.let(catalogue::get))?.let { input ->
+            val lineSource = source(line, catalogue, recipes, selfId)?.let { lineSource(it, catalogue, recipes, selfId) }
+            lineInput(line, lineSource)?.let { input ->
                 inputs += input
                 inputs.lastIndex
             }
@@ -145,15 +187,15 @@ object RecipeEditorLogic {
         )
 
         val lines = form.lines.mapIndexed { row, line ->
-            val ingredient = line.ingredientId?.let(catalogue::get)
+            val found = source(line, catalogue, recipes, selfId)
             val index = inputIndex[row]
             if (index != null) {
                 val lineCost = cost.lines[index]
-                LineResult(lineCost.unitPrice, ingredient?.purchaseUnit?.baseUnit, lineCost.cost, lineCost.issue)
+                LineResult(lineCost.unitPrice, found?.unit?.baseUnit, lineCost.cost, lineCost.issue)
             } else {
                 LineResult(
-                    unitPrice = ingredient?.let { CostCalculator.unitPrice(it.toPrice()) },
-                    baseUnit = ingredient?.purchaseUnit?.baseUnit,
+                    unitPrice = found?.let { unitPrice(lineSource(it, catalogue, recipes, selfId)) },
+                    baseUnit = found?.unit?.baseUnit,
                     cost = null,
                     issue = null,
                 )
@@ -187,11 +229,17 @@ object RecipeEditorLogic {
     }
 
     /** What stops the form from being saved: a title and at least one valid row are required. */
-    fun validate(form: RecipeForm, catalogue: Map<Long, Ingredient>): Validation {
+    fun validate(
+        form: RecipeForm,
+        catalogue: Map<Long, Ingredient>,
+        recipes: Map<Long, RecipeWithDetails> = emptyMap(),
+        selfId: Long = RecipeGraph.NO_RECIPE,
+    ): Validation {
         val kept = form.lines.filterNot { it.isEmpty }
+        val graph = subRecipeGraph(recipes)
         val rowErrors = buildMap {
             kept.forEach { line ->
-                val errors = rowErrors(line, line.ingredientId?.let(catalogue::get))
+                val errors = rowErrors(line, source(line, catalogue, recipes), selfId, graph)
                 if (errors.any) put(line.key, errors)
             }
         }
@@ -203,11 +251,17 @@ object RecipeEditorLogic {
         )
     }
 
-    private fun rowErrors(line: LineForm, ingredient: Ingredient?): RowErrors {
+    private fun rowErrors(line: LineForm, source: Source?, selfId: Long, graph: Map<Long, Set<Long>>): RowErrors {
         val quantity = Formats.parseDecimal(line.quantity)
         val waste = if (line.waste.isBlank()) BigDecimal.ZERO else Formats.parseDecimal(line.waste)
         return RowErrors(
-            ingredient = if (ingredient == null) FieldError.NOT_IN_CATALOGUE else null,
+            ingredient = when {
+                source == null -> FieldError.NOT_IN_CATALOGUE
+                source is Source.OfRecipe && RecipeGraph.wouldCreateCycle(selfId, source.recipe.recipe.id, graph) ->
+                    FieldError.CYCLE
+
+                else -> null
+            },
             quantity = when {
                 line.quantity.isBlank() -> FieldError.REQUIRED
                 quantity == null -> FieldError.NUMBER
@@ -219,20 +273,49 @@ object RecipeEditorLogic {
                 waste > MAX_WASTE_PCT -> FieldError.WASTE_RANGE
                 else -> null
             },
-            unit = if (ingredient != null && line.unit.magnitude != ingredient.purchaseUnit.magnitude) {
-                FieldError.UNIT_MISMATCH
-            } else {
-                null
-            },
+            unit = if (source != null && line.unit.magnitude != source.unit.magnitude) FieldError.UNIT_MISMATCH else null,
         )
     }
 
-    /** The calculator input of a row, or null while the row has no ingredient or a number is missing. */
-    private fun lineInput(line: LineForm, ingredient: Ingredient?): LineInput? {
-        if (ingredient == null) return null
+    /** The ingredient or recipe a row refers to, if it still exists. A row is never its own recipe. */
+    private fun source(
+        line: LineForm,
+        catalogue: Map<Long, Ingredient>,
+        recipes: Map<Long, RecipeWithDetails>,
+        selfId: Long = RecipeGraph.NO_RECIPE,
+    ): Source? {
+        line.ingredientId?.let(catalogue::get)?.let { return Source.OfIngredient(it) }
+        line.subRecipeId?.takeIf { it != selfId }?.let(recipes::get)?.let { return Source.OfRecipe(it) }
+        return null
+    }
+
+    /** The calculator source of a found [Source]; a recipe is built with its own sub-recipes inside. */
+    private fun lineSource(
+        source: Source,
+        catalogue: Map<Long, Ingredient>,
+        recipes: Map<Long, RecipeWithDetails>,
+        selfId: Long,
+    ): LineSource = when (source) {
+        is Source.OfIngredient -> LineSource.Ingredient(source.ingredient.toPrice())
+        is Source.OfRecipe -> LineSource.SubRecipe(
+            RecipeSummaryLogic.inputOf(source.recipe, catalogue, recipes, path = setOf(selfId, source.recipe.recipe.id)),
+        )
+    }
+
+    /** Price per base unit of a source, before waste. */
+    private fun unitPrice(source: LineSource): BigDecimal? = when (source) {
+        is LineSource.Ingredient -> CostCalculator.unitPrice(source.price)
+        // One base unit of the recipe's own unit costs exactly its unit price.
+        is LineSource.SubRecipe ->
+            CostCalculator.lineCost(LineInput(source, BigDecimal.ONE, source.recipe.yieldUnit.baseUnit)).unitPrice
+    }
+
+    /** The calculator input of a row, or null while the row has no source or a number is missing. */
+    private fun lineInput(line: LineForm, source: LineSource?): LineInput? {
+        if (source == null) return null
         val quantity = Formats.parseDecimal(line.quantity) ?: return null
         val waste = if (line.waste.isBlank()) BigDecimal.ZERO else Formats.parseDecimal(line.waste) ?: return null
-        return LineInput(LineSource.Ingredient(ingredient.toPrice()), quantity, line.unit, waste)
+        return LineInput(source, quantity, line.unit, waste)
     }
 
     private fun money(value: BigDecimal?) = value?.let { Formats.plain(it, 2) }.orEmpty()

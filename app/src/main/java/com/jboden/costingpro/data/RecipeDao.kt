@@ -29,6 +29,10 @@ abstract class RecipeDao {
     @Query("SELECT createdAt FROM recipe WHERE id = :id")
     abstract suspend fun getCreatedAt(id: Long): Long?
 
+    /** Every sub-recipe use stored: which recipe has a line that uses which other recipe. */
+    @Query("SELECT recipeId, subRecipeId FROM recipe_line WHERE subRecipeId IS NOT NULL")
+    abstract suspend fun getSubRecipeEdges(): List<SubRecipeEdge>
+
     @Query("SELECT photoPath FROM recipe WHERE id = :id")
     abstract suspend fun getPhotoPath(id: Long): String?
 
@@ -89,3 +93,6 @@ abstract class RecipeDao {
     @Query("DELETE FROM extra_cost WHERE recipeId = :recipeId")
     protected abstract suspend fun deleteExtras(recipeId: Long)
 }
+
+/** One row of a recipe that uses another recipe: [recipeId] contains [subRecipeId]. */
+data class SubRecipeEdge(val recipeId: Long, val subRecipeId: Long)
