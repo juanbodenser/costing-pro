@@ -350,4 +350,18 @@ class CostCalculatorTest {
         assertAmount("1.10", CostCalculator.priceWithVat(bd("1.00"), bd("10")))
         assertNull(CostCalculator.netPriceFromPriceWithVat(bd("1.10"), bd("-100")))
     }
+
+    // ---------- Share of the cost ----------
+
+    @Test
+    fun sharePct_isThePartOverTheTotal() {
+        assertAmount("25", CostCalculator.sharePct(bd("2.00"), bd("8.00")))
+        assertAmount("100", CostCalculator.sharePct(bd("7.19"), bd("7.19")))
+        assertAmount("0", CostCalculator.sharePct(BigDecimal.ZERO, bd("7.19")))
+    }
+
+    @Test
+    fun sharePct_withZeroTotal_isNull() {
+        assertNull(CostCalculator.sharePct(BigDecimal.ZERO, BigDecimal.ZERO))
+    }
 }

@@ -5,8 +5,7 @@
     <string name="tab_recipes">Recetas</string>
     <string name="tab_ingredients">Ingredientes</string>
     <string name="tab_settings">Ajustes</string>
-    <string name="recipes_placeholder">Tus escandallos aparecerán aquí. Pulsa + para crear uno.</string>
-    <string name="settings_placeholder">Los ajustes aparecerán aquí.</string>
+        <string name="settings_placeholder">Los ajustes aparecerán aquí.</string>
 
     <!-- Acciones comunes -->
     <string name="action_back">Volver</string>
@@ -96,4 +95,40 @@
     <string name="margin_good">Bueno</string>
     <string name="margin_fair">Justo</string>
     <string name="margin_low">Bajo</string>
+
+    <!-- Lista de recetas -->
+    <string name="recipes_search">Buscar escandallo</string>
+    <string name="recipes_empty">Aún no hay escandallos. Pulsa + para crear el primero.</string>
+    <string name="recipes_no_results">Ningún escandallo coincide con «%1$s».</string>
+    <!-- Fila de la lista: "Coste 0,18 € · Precio 1,00 €" -->
+    <string name="recipe_row_cost_price">Coste %1$s · Precio %2$s</string>
+    <string name="recipe_row_cost_only">Coste %1$s · Sin precio</string>
+    <string name="recipe_row_no_cost">Sin rendimiento</string>
+
+    <!-- Detalle de receta -->
+    <string name="recipe_photo_description">Foto de «%1$s»</string>
+    <string name="recipe_yield_summary">Rinde %1$s</string>
+    <string name="quantity_with_unit">%1$s %2$s</string>
+    <string name="photo_add">Añadir foto</string>
+    <string name="photo_change">Cambiar foto</string>
+    <string name="photo_remove">Quitar foto</string>
+    <string name="photo_options_title">Foto</string>
+    <string name="photo_camera">Hacer foto</string>
+    <string name="photo_gallery">Elegir de la galería</string>
+    <string name="photo_camera_missing">No hay ninguna aplicación de cámara</string>
+    <string name="photo_failed">No se ha podido leer la imagen</string>
+    <string name="detail_unit_cost">Coste por unidad</string>
+    <string name="detail_net_price">Precio neto</string>
+    <string name="detail_price_with_vat">PVP con IVA</string>
+    <string name="detail_profit_unit">Beneficio por unidad</string>
+    <string name="breakdown_title">Desglose</string>
+    <string name="breakdown_sort">Mayor coste primero</string>
+    <string name="breakdown_extras">Extras</string>
+    <string name="action_edit">Editar</string>
+    <string name="action_more">Más acciones</string>
+    <string name="action_duplicate">Duplicar</string>
+    <string name="recipe_copy_name">%1$s (copia)</string>
+    <string name="recipe_delete_title">¿Borrar escandallo?</string>
+    <string name="recipe_delete_message">«%1$s» se borrará con sus filas y su foto.</string>
+    <string name="recipe_delete_blocked_message">Este escandallo se usa como subreceta en estas recetas. Quítalo de ellas antes de borrarlo.</string>
 </resources>

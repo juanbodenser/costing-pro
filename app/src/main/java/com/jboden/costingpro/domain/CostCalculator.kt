@@ -113,6 +113,12 @@ object CostCalculator {
         return unitCost.multiply(HUNDRED).divide(foodCostPct, MC)
     }
 
+    /** Share of [part] in [total], as a percentage: part ÷ total × 100. Null if the total is zero. */
+    fun sharePct(part: BigDecimal, total: BigDecimal): BigDecimal? {
+        if (total.signum() == 0) return null
+        return percentOf(part, total)
+    }
+
     /** Price with VAT = net price × (1 + VAT ÷ 100). */
     fun priceWithVat(netPrice: BigDecimal, vatPct: BigDecimal): BigDecimal =
         netPrice.multiply(BigDecimal.ONE + vatPct.divide(HUNDRED, MC))

@@ -15,6 +15,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.jboden.costingpro.AppContainer
 import com.jboden.costingpro.data.CostingDatabase
+import com.jboden.costingpro.data.PhotoStore
 import com.jboden.costingpro.data.ExtraCost
 import com.jboden.costingpro.data.Ingredient
 import com.jboden.costingpro.data.Recipe
@@ -49,7 +50,10 @@ class RecipeEditorTest {
             ApplicationProvider.getApplicationContext(),
             CostingDatabase::class.java,
         ).build()
-        container = AppContainer { database }
+        container = AppContainer(
+            createDatabase = { database },
+            createPhotoStore = { PhotoStore(ApplicationProvider.getApplicationContext()) },
+        )
         runBlocking {
             fun ingredient(name: String, price: Double, quantity: Double, unit: MeasureUnit) =
                 Ingredient(name = name, purchasePrice = price, purchaseQuantity = quantity, purchaseUnit = unit)

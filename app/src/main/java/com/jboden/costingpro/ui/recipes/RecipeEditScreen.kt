@@ -574,58 +574,6 @@ private fun ResultCard(result: EditorResult) {
     }
 }
 
-/** The word and the dot go with the colour, so the state does not depend on colour alone. */
-@Composable
-private fun StatusLabel(status: MarginStatus) {
-    val word = when (status) {
-        MarginStatus.GOOD -> R.string.margin_good
-        MarginStatus.FAIR -> R.string.margin_fair
-        MarginStatus.LOW -> R.string.margin_low
-    }
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .clip(CircleShape)
-                .background(status.color()),
-        )
-        Text(
-            text = stringResource(word),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-    }
-}
-
-@Composable
-private fun ResultFigure(@StringRes label: Int, amount: BigDecimal?, modifier: Modifier = Modifier) {
-    Column(modifier = modifier) {
-        Text(
-            text = stringResource(label),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = amount?.let { Formats.money(it) } ?: stringResource(R.string.value_missing),
-            style = MaterialTheme.typography.titleLarge.merge(TabularFigures),
-        )
-    }
-}
-
-@Composable
-private fun SectionCard(content: @Composable () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            content()
-        }
-    }
-}
-
 @Composable
 private fun RowScope.ColumnHeader(@StringRes label: Int) {
     Text(

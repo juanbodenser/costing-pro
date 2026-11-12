@@ -14,6 +14,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.jboden.costingpro.AppContainer
 import com.jboden.costingpro.data.CostingDatabase
+import com.jboden.costingpro.data.PhotoStore
 import com.jboden.costingpro.data.ExtraCost
 import com.jboden.costingpro.data.Recipe
 import com.jboden.costingpro.data.RecipeLine
@@ -45,7 +46,10 @@ class IngredientCatalogueTest {
             ApplicationProvider.getApplicationContext(),
             CostingDatabase::class.java,
         ).build()
-        container = AppContainer { database }
+        container = AppContainer(
+            createDatabase = { database },
+            createPhotoStore = { PhotoStore(ApplicationProvider.getApplicationContext()) },
+        )
         compose.setContent {
             CostingProTheme { CostingProApp(container) }
         }

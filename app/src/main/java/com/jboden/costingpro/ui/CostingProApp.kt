@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -40,8 +39,12 @@ import com.jboden.costingpro.ui.ingredients.IngredientEditScreen
 import com.jboden.costingpro.ui.ingredients.IngredientEditViewModel
 import com.jboden.costingpro.ui.ingredients.IngredientListScreen
 import com.jboden.costingpro.ui.ingredients.IngredientListViewModel
+import com.jboden.costingpro.ui.recipes.RecipeDetailScreen
+import com.jboden.costingpro.ui.recipes.RecipeDetailViewModel
 import com.jboden.costingpro.ui.recipes.RecipeEditScreen
 import com.jboden.costingpro.ui.recipes.RecipeEditViewModel
+import com.jboden.costingpro.ui.recipes.RecipeListScreen
+import com.jboden.costingpro.ui.recipes.RecipeListViewModel
 
 private object Routes {
     const val RECIPES = "recipes"
@@ -59,6 +62,10 @@ private object Routes {
 
     /** @param id the recipe to edit, or [RecipeEditViewModel.NEW_ID] to create one. */
     fun recipe(id: Long) = "recipe/$id"
+
+    const val DETAIL = "recipeDetail/{$RECIPE_ID}"
+
+    fun detail(id: Long) = "recipeDetail/$id"
 }
 
 /** The three tabs of the bottom bar. */
@@ -107,12 +114,42 @@ fun CostingProApp(container: AppContainer) {
                 .consumeWindowInsets(innerPadding),
         ) {
             composable(Routes.RECIPES) {
-                // The real list arrives in phase 5; until then the button is the way into the editor.
-                PlaceholderScreen(
-                    title = R.string.tab_recipes,
-                    message = R.string.recipes_placeholder,
+                val viewModel: RecipeListViewModel = viewModel(
+                    factory = RecipeListViewModel.factory(container.recipeRepository, container.ingredientRepository),
+                )
+                RecipeListScreen(
+                    viewModel = viewModel,
+                    photoFile = { path -> container.photoStore.file(path) },
                     onAdd = { navController.navigate(Routes.recipe(RecipeEditViewModel.NEW_ID)) },
-                    addDescription = R.string.recipe_new,
+                    onOpen = { id -> navController.navigate(Routes.detail(id)) },
+                )
+            }
+            composable(
+                route = Routes.DETAIL,
+                arguments = listOf(navArgument(Routes.RECIPE_ID) { type = NavType.LongType }),
+            ) { entry ->
+                val recipeId = entry.arguments?.getLong(Routes.RECIPE_ID) ?: RecipeEditViewModel.NEW_ID
+                val viewModel: RecipeDetailViewModel = viewModel(
+                    factory = RecipeDetailViewModel.factory(
+                        container.recipeRepository,
+                        container.ingredientRepository,
+                        container.photoStore,
+                        recipeId,
+                    ),
+                )
+                RecipeDetailScreen(
+                    viewModel = viewModel,
+                    photoFile = { path -> container.photoStore.file(path) },
+                    onBack = {
+                        if (entry.lifecycle.currentState == Lifecycle.State.RESUMED) navController.popBackStack()
+                    },
+                    onEdit = { id -> navController.navigate(Routes.recipe(id)) },
+                    onDuplicated = { id ->
+                        // Open the copy in place of the original, so Back returns to the list.
+                        navController.navigate(Routes.detail(id)) {
+                            popUpTo(Routes.DETAIL) { inclusive = true }
+                        }
+                    },
                 )
             }
             composable(Routes.INGREDIENTS) {
@@ -176,26 +213,8 @@ private fun NavHostController.switchTab(tab: Tab) {
 
 /** Stands in for a tab whose screen belongs to a later phase. */
 @Composable
-private fun PlaceholderScreen(
-    @StringRes title: Int,
-    @StringRes message: Int,
-    onAdd: (() -> Unit)? = null,
-    @StringRes addDescription: Int = 0,
-) {
-    Scaffold(
-        topBar = { CostingTopBar(title = stringResource(title)) },
-        floatingActionButton = {
-            if (onAdd != null) {
-                FloatingActionButton(
-                    onClick = onAdd,
-                    containerColor = MaterialTheme.colorScheme.secondary,
-                    contentColor = MaterialTheme.colorScheme.onSecondary,
-                ) {
-                    Icon(painterResource(R.drawable.ic_add), contentDescription = stringResource(addDescription))
-                }
-            }
-        },
-    ) { innerPadding ->
+private fun PlaceholderScreen(@StringRes title: Int, @StringRes message: Int) {
+    Scaffold(topBar = { CostingTopBar(title = stringResource(title)) }) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()

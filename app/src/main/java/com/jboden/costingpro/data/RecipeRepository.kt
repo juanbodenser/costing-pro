@@ -44,6 +44,33 @@ class RecipeRepository(
         )
     }
 
+    /**
+     * Sets or removes (null) the photo of a recipe and returns the path it had before,
+     * so the caller can delete that file. Does not touch `updatedAt`: a photo is not a cost change.
+     */
+    suspend fun setPhoto(recipeId: Long, photoPath: String?): String? {
+        val previous = dao.getPhotoPath(recipeId)
+        dao.updatePhotoPath(recipeId, photoPath)
+        return previous
+    }
+
+    /** Saves a copy of the recipe under [newName], with the same lines and extras and no photo. Returns its id. */
+    suspend fun duplicate(recipeId: Long, newName: String): Long? {
+        val original = get(recipeId) ?: return null
+        val timestamp = now()
+        return dao.save(
+            recipe = original.recipe.copy(
+                id = 0,
+                name = newName.trim(),
+                photoPath = null,
+                createdAt = timestamp,
+                updatedAt = timestamp,
+            ),
+            lines = original.lines.map { it.copy(id = 0) },
+            extras = original.extras.map { it.copy(id = 0) },
+        )
+    }
+
     /** Recipes that use this one as a sub-recipe. */
     suspend fun recipesUsing(recipeId: Long): List<Recipe> = dao.recipesUsing(recipeId)
 

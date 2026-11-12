@@ -29,6 +29,12 @@ abstract class RecipeDao {
     @Query("SELECT createdAt FROM recipe WHERE id = :id")
     abstract suspend fun getCreatedAt(id: Long): Long?
 
+    @Query("SELECT photoPath FROM recipe WHERE id = :id")
+    abstract suspend fun getPhotoPath(id: Long): String?
+
+    @Query("UPDATE recipe SET photoPath = :photoPath WHERE id = :id")
+    abstract suspend fun updatePhotoPath(id: Long, photoPath: String?)
+
     @Query("SELECT COUNT(*) FROM recipe")
     abstract fun observeCount(): Flow<Int>
 
