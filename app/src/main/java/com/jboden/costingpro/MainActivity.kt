@@ -12,6 +12,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -25,14 +27,18 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             CostingProTheme {
-                HomePlaceholder()
+                val container = (application as CostingProApplication).container
+                val ingredientCount by container.ingredientRepository.observeCount().collectAsState(initial = 0)
+                val recipeCount by container.recipeRepository.observeCount().collectAsState(initial = 0)
+                HomePlaceholder(ingredientCount, recipeCount)
             }
         }
     }
 }
 
+/** Temporary screen until the real ones exist; the counts show that the database works. */
 @Composable
-private fun HomePlaceholder() {
+private fun HomePlaceholder(ingredientCount: Int, recipeCount: Int) {
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
         Column(
             modifier = Modifier
@@ -52,6 +58,11 @@ private fun HomePlaceholder() {
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Text(
+                text = stringResource(R.string.home_counts, ingredientCount, recipeCount),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -60,6 +71,6 @@ private fun HomePlaceholder() {
 @Composable
 private fun HomePlaceholderPreview() {
     CostingProTheme {
-        HomePlaceholder()
+        HomePlaceholder(ingredientCount = 6, recipeCount = 1)
     }
 }
