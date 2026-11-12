@@ -4,7 +4,9 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.jboden.costingpro.domain.IngredientPrice
 import com.jboden.costingpro.domain.MeasureUnit
+import java.math.BigDecimal
 
 /** A catalogue ingredient, stored once with its purchase format. */
 @Entity(
@@ -27,4 +29,11 @@ data class Ingredient(
     val allergens: Int = 0,
     /** Epoch millis of the last price change. */
     val updatedAt: Long = 0,
+)
+
+/** The purchase format of this ingredient, as the cost calculator takes it. */
+fun Ingredient.toPrice() = IngredientPrice(
+    purchasePrice = BigDecimal.valueOf(purchasePrice),
+    purchaseQuantity = BigDecimal.valueOf(purchaseQuantity),
+    purchaseUnit = purchaseUnit,
 )

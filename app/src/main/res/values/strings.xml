@@ -1,5 +1,68 @@
 <resources>
     <string name="app_name">Costing Pro</string>
-    <string name="home_placeholder">Tus escandallos aparecerán aquí.</string>
-    <string name="home_counts">Ingredientes: %1$d · Recetas: %2$d</string>
+
+    <!-- Pestañas -->
+    <string name="tab_recipes">Recetas</string>
+    <string name="tab_ingredients">Ingredientes</string>
+    <string name="tab_settings">Ajustes</string>
+    <string name="recipes_placeholder">Tus escandallos aparecerán aquí.</string>
+    <string name="settings_placeholder">Los ajustes aparecerán aquí.</string>
+
+    <!-- Acciones comunes -->
+    <string name="action_back">Volver</string>
+    <string name="action_save">Guardar</string>
+    <string name="action_delete">Borrar</string>
+    <string name="action_cancel">Cancelar</string>
+    <string name="action_understood">Entendido</string>
+    <string name="action_clear_search">Borrar búsqueda</string>
+
+    <!-- Unidades y formatos -->
+    <string name="unit_kg">kg</string>
+    <string name="unit_g">g</string>
+    <string name="unit_l">l</string>
+    <string name="unit_ml">ml</string>
+    <string name="unit_ud">ud</string>
+    <string name="unit_racion">ración</string>
+    <string name="currency_symbol">€</string>
+    <string name="percent_symbol">%</string>
+    <!-- Precio unitario: "0,90 €/kg" -->
+    <string name="unit_price_format">%1$s/%2$s</string>
+    <string name="value_missing">—</string>
+    <string name="bullet_item">• %1$s</string>
+
+    <!-- Errores de formulario -->
+    <string name="error_required">Este dato es obligatorio</string>
+    <string name="error_number">Escribe un número, por ejemplo 22,50</string>
+    <string name="error_quantity_zero">La cantidad debe ser mayor que 0</string>
+    <string name="error_waste_range">La merma debe estar entre 0 y 99 %</string>
+    <string name="error_ingredient_duplicate">Ya hay un ingrediente con este nombre</string>
+
+    <!-- Catálogo de ingredientes -->
+    <string name="ingredients_search">Buscar ingrediente</string>
+    <string name="ingredients_empty">Aún no hay ingredientes. Pulsa + para crear el primero.</string>
+    <string name="ingredients_no_results">Ningún ingrediente coincide con «%1$s».</string>
+    <!-- Formato de compra: "25 kg · 22,50 €" -->
+    <string name="ingredient_purchase_format">%1$s %2$s · %3$s</string>
+
+    <!-- Ficha de ingrediente -->
+    <string name="ingredient_new">Nuevo ingrediente</string>
+    <string name="ingredient_edit">Editar ingrediente</string>
+    <string name="ingredient_name">Nombre</string>
+    <string name="ingredient_purchase_price">Precio de compra</string>
+    <string name="ingredient_purchase_price_hint">Lo que cuesta el formato completo, sin IVA</string>
+    <string name="ingredient_purchase_quantity">Cantidad del formato</string>
+    <string name="ingredient_purchase_quantity_hint">Por ejemplo, 25 para un saco de 25 kg</string>
+    <string name="ingredient_purchase_unit">Unidad del formato</string>
+    <string name="ingredient_waste">Merma habitual</string>
+    <string name="ingredient_waste_hint">Opcional. Se propone al añadirlo a una receta</string>
+    <string name="ingredient_unit_price">Precio unitario</string>
+    <string name="ingredient_used_in_none">No se usa en ninguna receta</string>
+    <plurals name="ingredient_used_in">
+        <item quantity="one">Usado en %1$d receta</item>
+        <item quantity="other">Usado en %1$d recetas</item>
+    </plurals>
+    <string name="ingredient_delete_title">¿Borrar ingrediente?</string>
+    <string name="ingredient_delete_message">«%1$s» se borrará del catálogo.</string>
+    <string name="delete_blocked_title">No se puede borrar</string>
+    <string name="ingredient_delete_blocked_message">Este ingrediente se usa en estas recetas. Quítalo de ellas antes de borrarlo.</string>
 </resources>
