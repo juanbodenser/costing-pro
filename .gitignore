@@ -29,3 +29,6 @@ keystore.properties
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Kotlin compiler session files
+.kotlin/
