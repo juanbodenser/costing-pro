@@ -3,6 +3,8 @@ package com.jboden.costingpro.ui.ingredients
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,9 +45,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jboden.costingpro.R
+import com.jboden.costingpro.domain.Allergen
 import com.jboden.costingpro.domain.MeasureUnit
 import com.jboden.costingpro.ui.common.CostingTopBar
 import com.jboden.costingpro.ui.common.TabularFigures
+import com.jboden.costingpro.ui.common.costingChipColors
 import com.jboden.costingpro.ui.common.costingFieldColors
 import com.jboden.costingpro.ui.common.labelRes
 import com.jboden.costingpro.ui.common.unitPriceText
@@ -133,6 +138,8 @@ fun IngredientEditScreen(
             )
 
             UnitPriceCard(state)
+
+            AllergenSelector(selected = state.allergens, onToggle = viewModel::onAllergenToggle)
 
             if (!state.isNew) UsedIn(state.usedIn)
 
@@ -281,6 +288,37 @@ private fun UsedIn(recipes: List<String>) {
         )
         recipes.forEach {
             Text(text = stringResource(R.string.bullet_item, it), style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+/** The 14 allergens of mandatory declaration, one chip each; a selected chip shows a check mark. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AllergenSelector(selected: Set<Allergen>, onToggle: (Allergen) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = stringResource(R.string.ingredient_allergens),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp),
+        ) {
+            Allergen.entries.forEach { allergen ->
+                FilterChip(
+                    selected = allergen in selected,
+                    onClick = { onToggle(allergen) },
+                    label = { Text(stringResource(allergen.labelRes)) },
+                    colors = costingChipColors(),
+                    leadingIcon = if (allergen in selected) {
+                        { Icon(painterResource(R.drawable.ic_check), contentDescription = null) }
+                    } else {
+                        null
+                    },
+                )
+            }
         }
     }
 }

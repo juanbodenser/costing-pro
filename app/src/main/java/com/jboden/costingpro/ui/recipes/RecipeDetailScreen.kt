@@ -53,7 +53,13 @@ import com.jboden.costingpro.R
 import com.jboden.costingpro.ui.common.CostingTopBar
 import com.jboden.costingpro.ui.common.Formats
 import com.jboden.costingpro.ui.common.TabularFigures
+import com.jboden.costingpro.ui.common.costingChipColors
 import com.jboden.costingpro.ui.common.labelRes
+import com.jboden.costingpro.domain.Allergen
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
 import com.jboden.costingpro.ui.theme.color
 import java.io.File
 import java.math.BigDecimal
@@ -162,6 +168,7 @@ fun RecipeDetailScreen(
                     )
                 }
                 SummaryCard(summary)
+                AllergensCard(summary.allergens)
                 BreakdownCard(
                     rows = state.breakdown,
                     sortByCost = state.sortByCost,
@@ -347,6 +354,7 @@ private fun BreakdownCard(rows: List<BreakdownRow>, sortByCost: Boolean, onToggl
                 selected = sortByCost,
                 onClick = onToggleSort,
                 label = { Text(stringResource(R.string.breakdown_sort)) },
+                colors = costingChipColors(),
             )
         }
         rows.forEachIndexed { index, row ->
@@ -406,5 +414,41 @@ private fun BreakdownLine(row: BreakdownRow) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.End,
         )
+    }
+}
+
+/** The allergens of the recipe, inherited from its ingredients and sub-recipes. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AllergensCard(allergens: Set<Allergen>) {
+    SectionCard {
+        Text(
+            text = stringResource(R.string.detail_allergens),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        if (allergens.isEmpty()) {
+            Text(
+                text = stringResource(R.string.detail_no_allergens),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                allergens.forEach { allergen ->
+                    Text(
+                        text = stringResource(allergen.labelRes),
+                        modifier = Modifier
+                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+        }
     }
 }

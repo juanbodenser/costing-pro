@@ -4,6 +4,7 @@ import com.jboden.costingpro.data.Ingredient
 import com.jboden.costingpro.data.RecipeLine
 import com.jboden.costingpro.data.RecipeWithDetails
 import com.jboden.costingpro.data.toPrice
+import com.jboden.costingpro.domain.Allergen
 import com.jboden.costingpro.domain.CostCalculator
 import com.jboden.costingpro.domain.ExtraCostInput
 import com.jboden.costingpro.domain.LineInput
@@ -47,6 +48,8 @@ data class RecipeSummary(
     val status: MarginStatus?,
     /** In recipe order. */
     val breakdown: List<BreakdownRow>,
+    /** Every allergen of its ingredients, also through its sub-recipes, in declaration order. */
+    val allergens: Set<Allergen> = emptySet(),
 )
 
 object RecipeSummaryLogic {
@@ -120,6 +123,7 @@ object RecipeSummaryLogic {
             price = price,
             status = price?.foodCostPct?.let(MarginStatus::fromFoodCost),
             breakdown = rows + extraRows,
+            allergens = allergensOf(details, catalogue, recipes),
         )
     }
 
@@ -166,6 +170,31 @@ object RecipeSummaryLogic {
             }
             else -> null
         }
+    }
+
+    /**
+     * The allergens of a recipe: the union of those of its ingredients and of its sub-recipes,
+     * at any depth. Every line counts, even one that cannot be costed.
+     */
+    fun allergensOf(
+        details: RecipeWithDetails,
+        catalogue: Map<Long, Ingredient>,
+        recipes: Map<Long, RecipeWithDetails>,
+    ): Set<Allergen> = Allergen.fromMask(allergenMask(details, catalogue, recipes, setOf(details.recipe.id)))
+
+    private fun allergenMask(
+        details: RecipeWithDetails,
+        catalogue: Map<Long, Ingredient>,
+        recipes: Map<Long, RecipeWithDetails>,
+        path: Set<Long>,
+    ): Int = details.lines.fold(0) { mask, line ->
+        val fromIngredient = line.ingredientId?.let(catalogue::get)?.allergens ?: 0
+        val fromSubRecipe = line.subRecipeId
+            ?.takeIf { it !in path }
+            ?.let(recipes::get)
+            ?.let { allergenMask(it, catalogue, recipes, path + it.recipe.id) }
+            ?: 0
+        mask or fromIngredient or fromSubRecipe
     }
 
     /** The rows from the most expensive to the cheapest; rows without cost go last. */

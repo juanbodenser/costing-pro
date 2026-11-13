@@ -149,4 +149,23 @@
     <string name="settings_vat_label">IVA de venta</string>
     <string name="settings_vat_hint">Se propone en los escandallos nuevos. Cada escandallo puede tener el suyo.</string>
     <string name="breakdown_extra">Coste extra</string>
+
+    <!-- Alérgenos (Reglamento UE 1169/2011, anexo II) -->
+    <string name="allergen_gluten">Gluten</string>
+    <string name="allergen_crustaceans">Crustáceos</string>
+    <string name="allergen_eggs">Huevos</string>
+    <string name="allergen_fish">Pescado</string>
+    <string name="allergen_peanuts">Cacahuetes</string>
+    <string name="allergen_soy">Soja</string>
+    <string name="allergen_milk">Lácteos</string>
+    <string name="allergen_tree_nuts">Frutos de cáscara</string>
+    <string name="allergen_celery">Apio</string>
+    <string name="allergen_mustard">Mostaza</string>
+    <string name="allergen_sesame">Sésamo</string>
+    <string name="allergen_sulphites">Sulfitos</string>
+    <string name="allergen_lupin">Altramuces</string>
+    <string name="allergen_molluscs">Moluscos</string>
+    <string name="ingredient_allergens">Alérgenos</string>
+    <string name="detail_allergens">Alérgenos</string>
+    <string name="detail_no_allergens">Sus ingredientes no declaran alérgenos.</string>
 </resources>

@@ -10,6 +10,7 @@ import com.jboden.costingpro.R
 import com.jboden.costingpro.data.DeleteResult
 import com.jboden.costingpro.data.Ingredient
 import com.jboden.costingpro.data.IngredientRepository
+import com.jboden.costingpro.domain.Allergen
 import com.jboden.costingpro.domain.CostCalculator
 import com.jboden.costingpro.domain.IngredientPrice
 import com.jboden.costingpro.domain.MeasureUnit
@@ -36,6 +37,8 @@ data class IngredientEditUiState(
     @StringRes val wasteError: Int? = null,
     /** Names of the recipes that use this ingredient. */
     val usedIn: List<String> = emptyList(),
+    /** Allergens of mandatory declaration that the ingredient contains. */
+    val allergens: Set<Allergen> = emptySet(),
     val saving: Boolean = false,
     /** The "delete?" dialog is open. */
     val confirmingDelete: Boolean = false,
@@ -64,9 +67,6 @@ class IngredientEditViewModel(
     )
     val uiState: StateFlow<IngredientEditUiState> = _uiState.asStateFlow()
 
-    /** The stored ingredient being edited; keeps the columns this form does not show. */
-    private var original: Ingredient? = null
-
     init {
         if (ingredientId != NEW_ID) {
             viewModelScope.launch {
@@ -75,7 +75,6 @@ class IngredientEditViewModel(
                     _uiState.update { it.copy(finished = true) }
                     return@launch
                 }
-                original = ingredient
                 val usedIn = repository.recipesUsing(ingredientId).map { it.name }
                 _uiState.update {
                     it.copy(
@@ -86,6 +85,7 @@ class IngredientEditViewModel(
                         unit = ingredient.purchaseUnit,
                         waste = if (ingredient.defaultWastePct == 0.0) "" else Formats.number(ingredient.defaultWastePct),
                         usedIn = usedIn,
+                        allergens = Allergen.fromMask(ingredient.allergens),
                     )
                 }
             }
@@ -99,6 +99,10 @@ class IngredientEditViewModel(
     fun onQuantityChange(value: String) = _uiState.update { it.copy(quantity = value, quantityError = null) }
 
     fun onUnitChange(value: MeasureUnit) = _uiState.update { it.copy(unit = value) }
+
+    fun onAllergenToggle(allergen: Allergen) = _uiState.update {
+        it.copy(allergens = if (allergen in it.allergens) it.allergens - allergen else it.allergens + allergen)
+    }
 
     fun onWasteChange(value: String) = _uiState.update { it.copy(waste = value, wasteError = null) }
 
@@ -155,7 +159,7 @@ class IngredientEditViewModel(
                 purchaseQuantity = quantity!!.toDouble(),
                 purchaseUnit = state.unit,
                 defaultWastePct = waste!!.toDouble(),
-                allergens = original?.allergens ?: 0,
+                allergens = Allergen.maskOf(*state.allergens.toTypedArray()),
             )
             repository.save(ingredient)
             _uiState.update { it.copy(finished = true) }
