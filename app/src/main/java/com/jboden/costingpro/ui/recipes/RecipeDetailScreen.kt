@@ -109,6 +109,15 @@ fun RecipeDetailScreen(
             Toast.makeText(context, R.string.photo_camera_missing, Toast.LENGTH_LONG).show()
         }
     }
+    val savePdf = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        viewModel.exportPdf(uri)
+    }
+    LaunchedEffect(state.pdfResult) {
+        state.pdfResult?.let { ok ->
+            Toast.makeText(context, if (ok) R.string.pdf_done else R.string.pdf_failed, Toast.LENGTH_LONG).show()
+            viewModel.onPdfResultShown()
+        }
+    }
     val launchGallery = {
         pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
@@ -124,6 +133,13 @@ fun RecipeDetailScreen(
                             Icon(painterResource(R.drawable.ic_edit), contentDescription = stringResource(R.string.action_edit))
                         }
                         MoreMenu(
+                            onExportPdf = {
+                                try {
+                                    savePdf.launch(pdfFileName(summary.name))
+                                } catch (e: ActivityNotFoundException) {
+                                    Toast.makeText(context, R.string.pdf_failed, Toast.LENGTH_LONG).show()
+                                }
+                            },
                             onDuplicate = { viewModel.duplicate(context.getString(R.string.recipe_copy_name, summary.name)) },
                             onDelete = viewModel::requestDelete,
                         )
@@ -239,12 +255,19 @@ fun RecipeDetailScreen(
 }
 
 @Composable
-private fun MoreMenu(onDuplicate: () -> Unit, onDelete: () -> Unit) {
+private fun MoreMenu(onExportPdf: () -> Unit, onDuplicate: () -> Unit, onDelete: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     IconButton(onClick = { expanded = true }) {
         Icon(painterResource(R.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
     }
     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.action_export_pdf)) },
+            onClick = {
+                expanded = false
+                onExportPdf()
+            },
+        )
         DropdownMenuItem(
             text = { Text(stringResource(R.string.action_duplicate)) },
             onClick = {
@@ -260,6 +283,12 @@ private fun MoreMenu(onDuplicate: () -> Unit, onDelete: () -> Unit) {
             },
         )
     }
+}
+
+/** A file name for the PDF of a recipe: its name without the characters file systems reject. */
+internal fun pdfFileName(recipeName: String): String {
+    val clean = recipeName.replace(Regex("""[\\/:*?"<>|\p{Cntrl}]"""), " ").trim().replace(Regex("""\s+"""), " ")
+    return "${clean.ifEmpty { "escandallo" }}.pdf"
 }
 
 /** The photo at the top, or the button to add one. */

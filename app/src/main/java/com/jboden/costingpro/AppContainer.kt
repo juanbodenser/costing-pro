@@ -6,6 +6,8 @@ import com.jboden.costingpro.data.IngredientRepository
 import com.jboden.costingpro.data.PhotoStore
 import com.jboden.costingpro.data.RecipeRepository
 import com.jboden.costingpro.data.SettingsStore
+import com.jboden.costingpro.export.BackupManager
+import com.jboden.costingpro.export.RecipePdf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -39,4 +41,10 @@ class AppContainer(
     val ingredientRepository: IngredientRepository by lazy { IngredientRepository(database.ingredientDao()) }
 
     val recipeRepository: RecipeRepository by lazy { RecipeRepository(database.recipeDao()) }
+
+    val backupManager: BackupManager by lazy {
+        BackupManager(photoStore.context, database.backupDao(), photoStore, settings)
+    }
+
+    val recipePdf: RecipePdf by lazy { RecipePdf(photoStore.context, photoStore) }
 }

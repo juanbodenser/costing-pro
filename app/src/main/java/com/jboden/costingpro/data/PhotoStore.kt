@@ -14,10 +14,13 @@ import kotlinx.coroutines.withContext
  * path relative to the files directory (for example "photos/3f2a.jpg"), which stays valid
  * if the app data is restored somewhere else.
  */
-class PhotoStore(private val context: Context) {
+class PhotoStore(val context: Context) {
 
     /** A new, unused relative path for a photo. */
     fun newPath(): String = "$DIR/${UUID.randomUUID()}.jpg"
+
+    /** The folder that holds every photo. */
+    fun directory(): File = File(context.filesDir, DIR)
 
     /** The file behind a stored relative path. */
     fun file(path: String): File = File(context.filesDir, path)
@@ -56,7 +59,8 @@ class PhotoStore(private val context: Context) {
         withContext(Dispatchers.IO) { file(path).delete() }
     }
 
-    private companion object {
+    companion object {
+        /** Folder of the photos inside the files directory, and inside a backup. */
         const val DIR = "photos"
     }
 }

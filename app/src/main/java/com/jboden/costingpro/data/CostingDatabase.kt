@@ -17,6 +17,7 @@ abstract class CostingDatabase : RoomDatabase() {
 
     abstract fun ingredientDao(): IngredientDao
     abstract fun recipeDao(): RecipeDao
+    abstract fun backupDao(): BackupDao
 
     companion object {
         const val FILE_NAME = "costing.db"

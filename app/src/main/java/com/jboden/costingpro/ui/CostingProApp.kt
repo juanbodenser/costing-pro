@@ -132,7 +132,7 @@ fun CostingProApp(container: AppContainer) {
                         container.ingredientRepository,
                         container.photoStore,
                         recipeId,
-                    ),
+                    ) { container.recipePdf },
                 )
                 RecipeDetailScreen(
                     viewModel = viewModel,
@@ -159,7 +159,7 @@ fun CostingProApp(container: AppContainer) {
                 )
             }
             composable(Routes.SETTINGS) {
-                val viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.factory(container.settings))
+                val viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.factory(container.settings) { container.backupManager })
                 SettingsScreen(viewModel)
             }
             composable(

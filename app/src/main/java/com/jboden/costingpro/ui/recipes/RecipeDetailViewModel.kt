@@ -10,6 +10,8 @@ import com.jboden.costingpro.data.DeleteResult
 import com.jboden.costingpro.data.IngredientRepository
 import com.jboden.costingpro.data.PhotoStore
 import com.jboden.costingpro.data.RecipeRepository
+import com.jboden.costingpro.export.RecipePdf
+import java.io.IOException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +34,8 @@ data class RecipeDetailUiState(
     val duplicatedId: Long? = null,
     /** The picked image could not be read. */
     val photoFailed: Boolean = false,
+    /** Result of the last PDF export, until the screen has told the user. */
+    val pdfResult: Boolean? = null,
 ) {
     /** The breakdown in the order the user chose. */
     val breakdown: List<BreakdownRow>
@@ -43,7 +47,11 @@ class RecipeDetailViewModel(
     ingredients: IngredientRepository,
     private val photos: PhotoStore,
     private val recipeId: Long,
+    /** Created only when the user exports a PDF. */
+    createPdf: () -> RecipePdf = { error("No PDF exporter") },
 ) : ViewModel() {
+
+    private val pdf by lazy(createPdf)
 
     /** Everything on screen that does not come from the database. */
     private data class Local(
@@ -53,6 +61,7 @@ class RecipeDetailViewModel(
         val deleteBlockedBy: List<String>? = null,
         val duplicatedId: Long? = null,
         val photoFailed: Boolean = false,
+        val pdfResult: Boolean? = null,
     )
 
     private val local = MutableStateFlow(Local())
@@ -70,6 +79,7 @@ class RecipeDetailViewModel(
                 deleteBlockedBy = local.deleteBlockedBy,
                 duplicatedId = local.duplicatedId,
                 photoFailed = local.photoFailed,
+                pdfResult = local.pdfResult,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RecipeDetailUiState())
 
@@ -117,6 +127,27 @@ class RecipeDetailViewModel(
         photos.delete(recipes.setPhoto(recipeId, path))
     }
 
+    // ---------- PDF ----------
+
+    /** The user chose where to save the PDF, or closed the picker (null). */
+    fun exportPdf(uri: Uri?) {
+        val summary = uiState.value.summary
+        if (uri == null || summary == null) return
+        viewModelScope.launch {
+            val ok = try {
+                pdf.export(summary, uri)
+                true
+            } catch (e: IOException) {
+                false
+            } catch (e: SecurityException) {
+                false
+            }
+            local.update { it.copy(pdfResult = ok) }
+        }
+    }
+
+    fun onPdfResultShown() = local.update { it.copy(pdfResult = null) }
+
     // ---------- Duplicate and delete ----------
 
     fun duplicate(newName: String) {
@@ -148,8 +179,9 @@ class RecipeDetailViewModel(
             ingredients: IngredientRepository,
             photos: PhotoStore,
             recipeId: Long,
+            createPdf: () -> RecipePdf,
         ): ViewModelProvider.Factory = viewModelFactory {
-            initializer { RecipeDetailViewModel(recipes, ingredients, photos, recipeId) }
+            initializer { RecipeDetailViewModel(recipes, ingredients, photos, recipeId, createPdf) }
         }
     }
 }

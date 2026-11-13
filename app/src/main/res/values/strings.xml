@@ -168,4 +168,36 @@
     <string name="ingredient_allergens">Alérgenos</string>
     <string name="detail_allergens">Alérgenos</string>
     <string name="detail_no_allergens">Sus ingredientes no declaran alérgenos.</string>
+    <!-- PDF del escandallo -->
+    <string name="action_export_pdf">Exportar a PDF</string>
+    <string name="pdf_col_item">Concepto</string>
+    <string name="pdf_col_quantity">Cantidad</string>
+    <string name="pdf_col_cost">Coste</string>
+    <string name="pdf_col_share">% del coste</string>
+    <string name="pdf_batch_cost">Coste del lote</string>
+    <string name="pdf_no_price">Sin precio de venta</string>
+    <!-- Pie del PDF: "Costing Pro · 13/11/2026" -->
+    <string name="pdf_footer">Costing Pro · %1$s</string>
+    <plurals name="pdf_more_rows">
+        <item quantity="one">… y %1$d fila más</item>
+        <item quantity="other">… y %1$d filas más</item>
+    </plurals>
+    <string name="pdf_done">PDF guardado</string>
+    <string name="pdf_failed">No se ha podido guardar el PDF</string>
+
+    <!-- Copia de seguridad -->
+    <string name="backup_title">Copia de seguridad</string>
+    <string name="backup_hint">Un archivo .zip con los ingredientes, los escandallos, sus fotos y el IVA por defecto.</string>
+    <string name="backup_export">Exportar copia</string>
+    <string name="backup_import">Importar copia</string>
+    <!-- Nombre propuesto: "costing-pro-2026-11-13.zip" -->
+    <string name="backup_file_name">costing-pro-%1$s.zip</string>
+    <string name="backup_import_title">¿Importar copia?</string>
+    <string name="backup_import_message">Se borrarán todos los ingredientes, escandallos y fotos actuales y se sustituirán por los de la copia. No se puede deshacer.</string>
+    <string name="backup_import_confirm">Importar y sustituir</string>
+    <string name="backup_working">Un momento…</string>
+    <string name="backup_export_done">Copia guardada</string>
+    <string name="backup_export_failed">No se ha podido guardar la copia</string>
+    <string name="backup_import_done">Copia importada</string>
+    <string name="backup_import_invalid">Este archivo no es una copia válida de Costing Pro. No se ha cambiado nada.</string>
 </resources>
