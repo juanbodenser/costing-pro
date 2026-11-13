@@ -22,7 +22,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -136,6 +135,9 @@ fun RecipeDetailScreen(
                             Icon(painterResource(R.drawable.ic_edit), contentDescription = stringResource(R.string.action_edit))
                         }
                         MoreMenu(
+                            hasPhoto = summary.photoPath != null,
+                            onChoosePhoto = viewModel::openPhotoOptions,
+                            onRemovePhoto = viewModel::removePhoto,
                             onExportPdf = {
                                 try {
                                     savePdf.launch(pdfFileName(summary.name))
@@ -163,8 +165,6 @@ fun RecipeDetailScreen(
             RecipeHeader(
                 summary = summary,
                 photoFile = photoFile,
-                onChoose = viewModel::openPhotoOptions,
-                onRemove = viewModel::removePhoto,
             )
             Column(
                 modifier = Modifier.padding(horizontal = 16.dp),
@@ -249,12 +249,35 @@ fun RecipeDetailScreen(
 }
 
 @Composable
-private fun MoreMenu(onExportPdf: () -> Unit, onDuplicate: () -> Unit, onDelete: () -> Unit) {
+private fun MoreMenu(
+    hasPhoto: Boolean,
+    onChoosePhoto: () -> Unit,
+    onRemovePhoto: () -> Unit,
+    onExportPdf: () -> Unit,
+    onDuplicate: () -> Unit,
+    onDelete: () -> Unit,
+) {
     var expanded by remember { mutableStateOf(false) }
     IconButton(onClick = { expanded = true }) {
         Icon(painterResource(R.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
     }
     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenuItem(
+            text = { Text(stringResource(if (hasPhoto) R.string.photo_change else R.string.photo_add)) },
+            onClick = {
+                expanded = false
+                onChoosePhoto()
+            },
+        )
+        if (hasPhoto) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.photo_remove)) },
+                onClick = {
+                    expanded = false
+                    onRemovePhoto()
+                },
+            )
+        }
         DropdownMenuItem(
             text = { Text(stringResource(R.string.action_export_pdf)) },
             onClick = {
@@ -288,15 +311,13 @@ internal fun pdfFileName(recipeName: String): String {
 /**
  * The top of the screen. With a photo: the photo cropped to 16:9, with the name, the yield chip
  * and the margin pill over a dark gradient at its bottom. Without one: the name and the yield
- * chip, and the button to add a photo.
+ * chip. Changing or removing the photo lives in the more-actions menu, not here.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RecipeHeader(
     summary: RecipeSummary,
     photoFile: (String) -> File,
-    onChoose: () -> Unit,
-    onRemove: () -> Unit,
 ) {
     val yieldText = stringResource(
         R.string.recipe_yield_summary,
@@ -308,7 +329,7 @@ private fun RecipeHeader(
     )
     val photoPath = summary.photoPath
     if (photoPath != null) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(modifier = Modifier.fillMaxWidth()) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -350,31 +371,16 @@ private fun RecipeHeader(
                     summary.status?.let { MarginPill(it, marginPct = summary.price?.marginPct) }
                 }
             }
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedButton(onClick = onChoose) { Text(stringResource(R.string.photo_change)) }
-                TextButton(onClick = onRemove) { Text(stringResource(R.string.photo_remove)) }
-            }
         }
     } else {
-        Column(
+        FlowRow(
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            itemVerticalAlignment = Alignment.CenterVertically,
         ) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                itemVerticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(text = summary.name, style = RecipeTitleStyle)
-                YieldChip(yieldText, overPhoto = false)
-            }
-            OutlinedButton(onClick = onChoose) {
-                Icon(painterResource(R.drawable.ic_photo_camera), contentDescription = null, modifier = Modifier.size(18.dp))
-                Text(text = stringResource(R.string.photo_add), modifier = Modifier.padding(start = 8.dp))
-            }
+            Text(text = summary.name, style = RecipeTitleStyle)
+            YieldChip(yieldText, overPhoto = false)
         }
     }
 }

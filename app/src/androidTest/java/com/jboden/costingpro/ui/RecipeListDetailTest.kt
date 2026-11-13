@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onLast
@@ -253,13 +254,20 @@ class RecipeListDetailTest {
     @Test
     fun theDetailShowsThePhotoInsteadOfTheAddButton() {
         openCookies()
+        compose.onNodeWithContentDescription("Más acciones").performClick()
         compose.onNodeWithText("Añadir foto").assertIsDisplayed()
+        compose.onNodeWithText("Añadir foto").performClick()
+        compose.onNodeWithText("Cancelar").performClick()
 
         detailViewModel().onGalleryPicked(pickedImage())
 
-        waitForText("Cambiar foto")
+        compose.waitUntil(5_000) {
+            compose.onAllNodes(hasContentDescription("Foto de «Galletas de chocolate»")).fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithContentDescription("Foto de «Galletas de chocolate»").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Más acciones").performClick()
         assertTrue(compose.onAllNodesWithText("Añadir foto").fetchSemanticsNodes().isEmpty())
+        compose.onNodeWithText("Cambiar foto").assertIsDisplayed()
     }
 
     @Test
