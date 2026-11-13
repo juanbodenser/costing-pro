@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.jboden.costingpro.data.SettingsStore
 import com.jboden.costingpro.export.BackupManager
+import com.jboden.costingpro.export.ImportMode
 import com.jboden.costingpro.export.InvalidBackupException
 import com.jboden.costingpro.ui.common.Formats
 import com.jboden.costingpro.ui.recipes.FieldError
@@ -22,7 +23,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /** What happened with the last export or import, to tell the user. */
-enum class BackupMessage { EXPORT_DONE, EXPORT_FAILED, IMPORT_DONE, IMPORT_INVALID }
+enum class BackupMessage { EXPORT_DONE, EXPORT_FAILED, IMPORT_DONE, IMPORT_ADDED, IMPORT_INVALID }
 
 data class SettingsUiState(
     /** The VAT field as typed. */
@@ -31,7 +32,7 @@ data class SettingsUiState(
     val vatError: FieldError?,
     /** An export or import is running. */
     val backupBusy: Boolean = false,
-    /** The backup the user picked, while the "replace everything?" dialog is open. */
+    /** The backup the user picked, while the "add or replace?" dialog is open. */
     val pendingImport: Uri? = null,
     val backupMessage: BackupMessage? = null,
 )
@@ -102,22 +103,22 @@ class SettingsViewModel(
         }
     }
 
-    /** The user picked a backup to import, or closed the picker (null). Asks before replacing anything. */
+    /** The user picked a backup to import, or closed the picker (null). Asks whether to add or replace. */
     fun onImportPicked(uri: Uri?) {
         if (uri != null) backupState.update { it.copy(pendingImport = uri) }
     }
 
     fun cancelImport() = backupState.update { it.copy(pendingImport = null) }
 
-    fun confirmImport() {
+    fun confirmImport(mode: ImportMode) {
         val uri = backupState.value.pendingImport ?: return
         backupState.update { it.copy(pendingImport = null) }
         runBackup {
             try {
-                backup.import(uri)
-                // The backup brings its own default VAT.
+                backup.import(uri, mode)
+                // Replacing brings the default VAT of the backup.
                 vatText.value = Formats.number(settings.defaultVatPct.value)
-                BackupMessage.IMPORT_DONE
+                if (mode == ImportMode.ADD) BackupMessage.IMPORT_ADDED else BackupMessage.IMPORT_DONE
             } catch (e: InvalidBackupException) {
                 BackupMessage.IMPORT_INVALID
             }

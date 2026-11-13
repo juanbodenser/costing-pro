@@ -203,7 +203,7 @@ Todo se recalcula mientras se escribe, sin botón de calcular. Guardar exige tí
 ### 5. Ajustes
 
 - IVA por defecto.
-- Exportar copia de seguridad e importar copia. Importar sustituye todos los datos y pide confirmación.
+- Exportar copia de seguridad e importar copia. Al importar se pregunta: "Añadir" (suma los escandallos e ingredientes de la copia a los actuales; un ingrediente con el mismo nombre no se duplica, se usa el existente con su precio; el IVA por defecto no cambia) o "Sustituir todo" (borra todos los datos y los cambia por los de la copia).
 
 ## Diseño visual
 

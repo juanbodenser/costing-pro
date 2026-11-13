@@ -5,7 +5,7 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
 
-/** Reads every table as it is, and replaces all of them at once, for the backup. */
+/** Reads every table as it is, and replaces all of them at once or adds to them, for the backup. */
 @Dao
 abstract class BackupDao {
 
@@ -42,6 +42,44 @@ abstract class BackupDao {
         insertLines(lines)
         insertExtras(extras)
     }
+
+    /**
+     * Adds the given rows to the data already there, in one transaction. The rows get new ids,
+     * and the lines and extras are pointed at them. An ingredient whose name already exists
+     * (regardless of case) is not added: the lines use the existing one, with its own price.
+     * The ids of the given rows only link them to each other.
+     */
+    @Transaction
+    open suspend fun addAll(
+        ingredients: List<Ingredient>,
+        recipes: List<Recipe>,
+        lines: List<RecipeLine>,
+        extras: List<ExtraCost>,
+    ) {
+        val ingredientIds = ingredients.associate { it.id to (ingredientIdByName(it.name) ?: insertIngredient(it.copy(id = 0))) }
+        val recipeIds = recipes.associate { it.id to insertRecipe(it.copy(id = 0)) }
+        insertLines(
+            lines.map { line ->
+                line.copy(
+                    id = 0,
+                    recipeId = recipeIds.getValue(line.recipeId),
+                    ingredientId = line.ingredientId?.let(ingredientIds::getValue),
+                    subRecipeId = line.subRecipeId?.let(recipeIds::getValue),
+                )
+            },
+        )
+        insertExtras(extras.map { it.copy(id = 0, recipeId = recipeIds.getValue(it.recipeId)) })
+    }
+
+    /** The NOCASE collation of the column makes this match regardless of case. */
+    @Query("SELECT id FROM ingredient WHERE name = :name LIMIT 1")
+    protected abstract suspend fun ingredientIdByName(name: String): Long?
+
+    @Insert
+    protected abstract suspend fun insertIngredient(row: Ingredient): Long
+
+    @Insert
+    protected abstract suspend fun insertRecipe(row: Recipe): Long
 
     @Query("DELETE FROM recipe_line")
     protected abstract suspend fun deleteLines()

@@ -40,6 +40,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jboden.costingpro.R
+import com.jboden.costingpro.export.ImportMode
 import com.jboden.costingpro.ui.common.CostingTopBar
 import com.jboden.costingpro.ui.common.costingFieldColors
 import com.jboden.costingpro.ui.recipes.FieldError
@@ -125,8 +126,13 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
             title = { Text(stringResource(R.string.backup_import_title)) },
             text = { Text(stringResource(R.string.backup_import_message)) },
             confirmButton = {
-                TextButton(onClick = viewModel::confirmImport) {
-                    Text(stringResource(R.string.backup_import_confirm), color = MaterialTheme.colorScheme.error)
+                Row {
+                    TextButton(onClick = { viewModel.confirmImport(ImportMode.REPLACE) }) {
+                        Text(stringResource(R.string.backup_import_replace), color = MaterialTheme.colorScheme.error)
+                    }
+                    TextButton(onClick = { viewModel.confirmImport(ImportMode.ADD) }) {
+                        Text(stringResource(R.string.backup_import_add))
+                    }
                 }
             },
             dismissButton = {
@@ -189,6 +195,7 @@ private fun BackupMessage.textRes(): Int = when (this) {
     BackupMessage.EXPORT_DONE -> R.string.backup_export_done
     BackupMessage.EXPORT_FAILED -> R.string.backup_export_failed
     BackupMessage.IMPORT_DONE -> R.string.backup_import_done
+    BackupMessage.IMPORT_ADDED -> R.string.backup_import_added
     BackupMessage.IMPORT_INVALID -> R.string.backup_import_invalid
 }
 

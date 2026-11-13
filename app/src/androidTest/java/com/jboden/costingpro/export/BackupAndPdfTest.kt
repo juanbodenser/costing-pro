@@ -83,6 +83,49 @@ class BackupAndPdfTest {
     }
 
     @Test
+    fun addingKeepsTheCurrentDataAndReusesIngredientsByName() = runBlocking<Unit> {
+        val recipes = container.recipeRepository
+        val dao = databaseRule.database.backupDao()
+        val cookies = recipes.getAll().first { it.recipe.name == SampleData.COOKIES_NAME }
+        val photoPath = container.photoStore.newPath()
+        container.photoStore.file(photoPath).apply { parentFile?.mkdirs() }.writeBytes(photoBytes)
+        recipes.setPhoto(cookies.recipe.id, photoPath)
+
+        val (_, uri) = cacheUri("backup-add-test.zip")
+        container.backupManager.export(uri)
+        val ingredientsBefore = dao.ingredients()
+        val recipesBefore = dao.recipes()
+        val linesBefore = dao.lines()
+        settings.setDefaultVatPct(4.0)
+
+        container.backupManager.import(uri, ImportMode.ADD)
+
+        // Every ingredient name already existed: none is added, and the current ones are untouched.
+        assertEquals(ingredientsBefore, dao.ingredients())
+        // The current recipes and lines stay, and a copy of each one is added.
+        val recipesAfter = dao.recipes()
+        assertEquals(recipesBefore.size * 2, recipesAfter.size)
+        assertTrue(recipesAfter.containsAll(recipesBefore))
+        assertTrue(dao.lines().containsAll(linesBefore))
+        assertEquals(linesBefore.size * 2, dao.lines().size)
+        // Adding does not change the default VAT.
+        assertEquals(4.0, settings.defaultVatPct.value, 0.0)
+
+        // The added copy costs the same: its lines point to the same ingredients.
+        val copy = recipes.getAll().first { it.recipe.name == SampleData.COOKIES_NAME && it.recipe.id != cookies.recipe.id }
+        val original = recipes.get(cookies.recipe.id)!!
+        assertEquals(
+            original.lines.map { it.ingredientId to it.quantity },
+            copy.lines.map { it.ingredientId to it.quantity },
+        )
+        // Its photo is a new file with the same content, and the original photo is still there.
+        val copyPhoto = copy.recipe.photoPath!!
+        assertTrue(copyPhoto != photoPath)
+        assertArrayEquals(photoBytes, container.photoStore.file(copyPhoto).readBytes())
+        assertArrayEquals(photoBytes, container.photoStore.file(photoPath).readBytes())
+    }
+
+    @Test
     fun anInvalidFileChangesNothing() = runBlocking<Unit> {
         val dao = databaseRule.database.backupDao()
         val before = dao.ingredients()

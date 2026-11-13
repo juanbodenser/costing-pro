@@ -193,11 +193,13 @@
     <!-- Nombre propuesto: "costing-pro-2026-11-13.zip" -->
     <string name="backup_file_name">costing-pro-%1$s.zip</string>
     <string name="backup_import_title">¿Importar copia?</string>
-    <string name="backup_import_message">Se borrarán todos los ingredientes, escandallos y fotos actuales y se sustituirán por los de la copia. No se puede deshacer.</string>
-    <string name="backup_import_confirm">Importar y sustituir</string>
+    <string name="backup_import_message">Añadir suma los escandallos de la copia a los tuyos. Si un ingrediente ya existe con el mismo nombre, se usa el tuyo con tu precio.\n\nSustituir todo borra tus ingredientes, escandallos y fotos y los cambia por los de la copia. No se puede deshacer.</string>
+    <string name="backup_import_add">Añadir</string>
+    <string name="backup_import_replace">Sustituir todo</string>
     <string name="backup_working">Un momento…</string>
     <string name="backup_export_done">Copia guardada</string>
     <string name="backup_export_failed">No se ha podido guardar la copia</string>
     <string name="backup_import_done">Copia importada</string>
+    <string name="backup_import_added">Escandallos añadidos</string>
     <string name="backup_import_invalid">Este archivo no es una copia válida de Costing Pro. No se ha cambiado nada.</string>
 </resources>

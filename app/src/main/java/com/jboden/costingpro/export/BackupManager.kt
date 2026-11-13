@@ -38,12 +38,17 @@ class BackupManager(
     }
 
     /**
-     * Replaces all the data, photos and default VAT with those of the backup in [source].
-     * The file is read and checked completely before anything is touched.
+     * Imports the backup in [source]. The file is read and checked completely before anything
+     * is touched.
+     *
+     * - [ImportMode.REPLACE]: all the data, photos and default VAT become those of the backup.
+     * - [ImportMode.ADD]: the ingredients and recipes of the backup are added to the current
+     *   ones, which stay as they are. An ingredient with a name that already exists is not
+     *   added: the imported recipes use the existing one. The default VAT does not change.
      *
      * @throws InvalidBackupException if it is not a valid backup; nothing changes then.
      */
-    suspend fun import(source: Uri) = withContext(Dispatchers.IO) {
+    suspend fun import(source: Uri, mode: ImportMode = ImportMode.REPLACE) = withContext(Dispatchers.IO) {
         val staging = File(context.cacheDir, "restore").apply { deleteRecursively() }
         try {
             val input = try {
@@ -54,22 +59,75 @@ class BackupManager(
                 throw InvalidBackupException("Cannot open $source", e)
             } ?: throw InvalidBackupException("Cannot open $source")
             val data = input.use { BackupArchive.read(it, staging) }
+            when (mode) {
+                ImportMode.REPLACE -> replace(data, staging)
+                ImportMode.ADD -> add(data, staging)
+            }
+        } finally {
+            staging.deleteRecursively()
+        }
+    }
 
-            try {
-                dao.replaceAll(
+    private suspend fun replace(data: BackupData, staging: File) {
+        writeToDatabase {
+            dao.replaceAll(
+                ingredients = data.ingredients.map { it.toEntity() },
+                recipes = data.recipes.map { it.toEntity() },
+                lines = data.lines.map { it.toEntity() },
+                extras = data.extras.map { it.toEntity() },
+            )
+        }
+        settings.setDefaultVatPct(data.defaultVatPct)
+        replacePhotos(File(staging, PhotoStore.DIR))
+    }
+
+    /**
+     * Each imported photo is moved in under a new name first, so it never overwrites a photo
+     * already there. If the data cannot be added, the moved photos are removed again.
+     */
+    private suspend fun add(data: BackupData, staging: File) {
+        val moved = mutableListOf<File>()
+        val recipes = data.recipes.map { row ->
+            val newPath = row.photoPath?.let { movePhoto(File(staging, it)) }
+            newPath?.let { moved += photos.file(it) }
+            row.toEntity().copy(photoPath = newPath)
+        }
+        try {
+            writeToDatabase {
+                dao.addAll(
                     ingredients = data.ingredients.map { it.toEntity() },
-                    recipes = data.recipes.map { it.toEntity() },
+                    recipes = recipes,
                     lines = data.lines.map { it.toEntity() },
                     extras = data.extras.map { it.toEntity() },
                 )
-            } catch (e: android.database.SQLException) {
-                // A constraint the checks did not catch: the transaction rolled back.
-                throw InvalidBackupException("The data does not fit the database", e)
             }
-            settings.setDefaultVatPct(data.defaultVatPct)
-            replacePhotos(File(staging, PhotoStore.DIR))
-        } finally {
-            staging.deleteRecursively()
+        } catch (e: InvalidBackupException) {
+            moved.forEach { it.delete() }
+            throw e
+        }
+    }
+
+    /** Moves a photo of the backup into the photo folder under a new name. Null if it cannot be. */
+    private fun movePhoto(source: File): String? {
+        val path = photos.newPath()
+        val target = photos.file(path)
+        target.parentFile?.mkdirs()
+        if (source.renameTo(target)) return path
+        return try {
+            source.copyTo(target)
+            path
+        } catch (e: IOException) {
+            target.delete()
+            null
+        }
+    }
+
+    private suspend fun writeToDatabase(write: suspend () -> Unit) {
+        try {
+            write()
+        } catch (e: android.database.SQLException) {
+            // A constraint the checks did not catch: the transaction rolled back.
+            throw InvalidBackupException("The data does not fit the database", e)
         }
     }
 
