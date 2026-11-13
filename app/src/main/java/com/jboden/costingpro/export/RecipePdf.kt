@@ -22,7 +22,7 @@ import com.jboden.costingpro.ui.common.Formats
 import com.jboden.costingpro.ui.common.labelRes
 import com.jboden.costingpro.ui.recipes.BreakdownRow
 import com.jboden.costingpro.ui.recipes.RecipeSummary
-import com.jboden.costingpro.ui.recipes.wordRes
+import com.jboden.costingpro.ui.components.wordRes
 import java.io.IOException
 import java.io.OutputStream
 import java.math.BigDecimal

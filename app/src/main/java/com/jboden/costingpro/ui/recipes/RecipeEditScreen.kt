@@ -1,5 +1,8 @@
 package com.jboden.costingpro.ui.recipes
 
+import com.jboden.costingpro.ui.components.ResultCard
+import com.jboden.costingpro.ui.components.SpanishLocale
+import com.jboden.costingpro.ui.theme.FigureLabelStyle
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -206,7 +209,7 @@ fun RecipeEditScreen(
                 onPriceWithVatChange = viewModel::onPriceWithVatChange,
             )
 
-            ResultCard(state.result)
+            EditorResultCard(state.result)
 
             Button(
                 onClick = viewModel::save,
@@ -696,52 +699,47 @@ private fun PricingSection(
     }
 }
 
+/** The shared result card, with the profit per batch and the food cost under the grid. */
 @Composable
-private fun ResultCard(result: EditorResult) {
+private fun EditorResultCard(result: EditorResult) {
     val price = result.price
-    val status = result.status
-    SectionCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Bottom,
-        ) {
-            Column {
+    ResultCard(
+        marginPct = price?.marginPct,
+        status = result.status,
+        unitCost = result.cost.unitCost,
+        netPrice = price?.netPrice,
+        priceWithVat = price?.priceWithVat,
+        profitPerUnit = price?.profitPerUnit,
+        footer = {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(
-                    text = stringResource(R.string.result_margin),
-                    style = MaterialTheme.typography.labelLarge,
+                    text = stringResource(R.string.result_profit_batch),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = price?.marginPct?.let { Formats.percent(it) } ?: stringResource(R.string.value_missing),
-                    style = MaterialTheme.typography.displaySmall.merge(TabularFigures),
+                    text = price?.profitPerBatch?.let { Formats.money(it) } ?: stringResource(R.string.value_missing),
+                    style = MaterialTheme.typography.bodyMedium.merge(TabularFigures),
                     fontWeight = FontWeight.SemiBold,
-                    color = status?.color() ?: MaterialTheme.colorScheme.onSurface,
                 )
             }
-            if (status != null) StatusLabel(status)
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ResultFigure(R.string.result_profit_unit, price?.profitPerUnit, Modifier.weight(1f))
-            ResultFigure(R.string.result_profit_batch, price?.profitPerBatch, Modifier.weight(1f))
-        }
-        price?.foodCostPct?.let {
-            Text(
-                text = stringResource(R.string.result_food_cost, Formats.percent(it)),
-                style = MaterialTheme.typography.bodyMedium.merge(TabularFigures),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
+            price?.foodCostPct?.let {
+                Text(
+                    text = stringResource(R.string.result_food_cost, Formats.percent(it)),
+                    style = MaterialTheme.typography.bodyMedium.merge(TabularFigures),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+    )
 }
 
 @Composable
 private fun RowScope.ColumnHeader(@StringRes label: Int) {
     Text(
-        text = stringResource(label),
+        text = stringResource(label).uppercase(SpanishLocale),
         modifier = Modifier.weight(1f),
-        style = MaterialTheme.typography.labelMedium,
+        style = FigureLabelStyle,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.End,
     )

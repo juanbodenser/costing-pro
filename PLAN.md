@@ -70,7 +70,7 @@ Cuatro tablas en Room. El esquema completo se crea desde la fase 2, aunque algun
 | name | String | Título |
 | yieldQuantity | Double | Cuánto produce el lote (ej. 40) |
 | yieldUnit | Enum | RACION, UD, KG, G, L, ML |
-| pricingMode | Enum | PRICE, MARKUP o FOOD\_COST: qué dato fijó el usuario |
+| pricingMode | Enum | PRICE, MARKUP o FOOD_COST: qué dato fijó el usuario |
 | pricingValue | Double | El valor de ese dato (precio neto por unidad, o el porcentaje) |
 | vatPct | Double | IVA de venta; por defecto el de Ajustes |
 | photoPath | String? | Ruta de la foto en almacenamiento interno |
@@ -106,7 +106,7 @@ Reglas de integridad:
 - Una receta no puede contenerse a sí misma, ni directa ni indirectamente. Se comprueba al añadir una subreceta.
 - No se borra un ingrediente o una receta que esté en uso en otra receta: se avisa y se listan las recetas afectadas.
 - Solo se convierte dentro de la misma magnitud: g y kg, ml y l, o unidades. No hay conversión de peso a volumen.
-- `pricingMode` decide qué pasa cuando suben los costes: con PRICE el precio se mantiene y cambia el margen; con MARKUP o FOOD\_COST el precio se recalcula.
+- `pricingMode` decide qué pasa cuando suben los costes: con PRICE el precio se mantiene y cambia el margen; con MARKUP o FOOD_COST el precio se recalcula.
 
 ## Fórmulas de cálculo
 
@@ -151,7 +151,7 @@ Galletas de chocolate, lote de 40 unidades. Estos números sirven como test unit
 | Azúcar | 200 g | 1,20 €/kg | 0 % | 0,24 € |
 | Chocolate | 200 g | 10,00 €/kg | 0 % | 2,00 € |
 | Huevos | 2 ud | 0,25 €/ud | 0 % | 0,50 € |
-| Extra: bolsa (por unidad) | 40 ud | 0,05 €/ud |  | 2,00 € |
+| Extra: bolsa (por unidad) | 40 ud | 0,05 €/ud | | 2,00 € |
 
 Resultado esperado: materia prima 5,19 €, coste del lote 7,19 €, coste por unidad 0,17975 € (se muestra 0,18 €). Con precio neto de 1,00 €: beneficio 0,82 €, margen 82,0 %, food cost 18,0 %, incremento 456,3 %, PVP con IVA al 10 % de 1,10 €.
 
@@ -173,10 +173,10 @@ De arriba abajo, en una sola pantalla con scroll:
 1. **Título.**
 2. **Rendimiento:** cantidad y unidad (ej. 40 ud, 10 raciones, 3 l).
 3. **Filas de ingredientes**, una debajo de otra. Cada fila tiene:
-   - Ingrediente: campo con autocompletado sobre el catálogo. Las subrecetas aparecen en la misma búsqueda, marcadas como receta. Si el nombre no existe, se ofrece "Crear ingrediente" sin salir de la pantalla.
-   - Cantidad y unidad.
-   - Merma %, precargada con la merma habitual del ingrediente.
-   - Coste de la fila, calculado y de solo lectura. Debajo, en pequeño, el precio unitario del catálogo.
+    - Ingrediente: campo con autocompletado sobre el catálogo. Las subrecetas aparecen en la misma búsqueda, marcadas como receta. Si el nombre no existe, se ofrece "Crear ingrediente" sin salir de la pantalla.
+    - Cantidad y unidad.
+    - Merma %, precargada con la merma habitual del ingrediente.
+    - Coste de la fila, calculado y de solo lectura. Debajo, en pequeño, el precio unitario del catálogo.
 4. **Botón "Añadir ingrediente".** Las filas se borran deslizando.
 5. **Costes extra:** filas con nombre, importe y selector "por lote / por unidad".
 6. **Totales en vivo:** coste del lote y coste por unidad, con el reparto entre materia prima y extras.
@@ -207,7 +207,7 @@ Todo se recalcula mientras se escribe, sin botón de calcular. Guardar exige tí
 
 ## Diseño visual
 
-Costing Pro se usa sentado y con calma, así que el diseño es claro, espacioso y con color: una herramienta de despacho, no de servicio. Tema claro por defecto y tema oscuro siguiendo el sistema.
+La primera pasada (tema claro, calmado) salió demasiado plana: texto apilado sin jerarquía, como un listado de libro. Esta revisión mantiene la paleta y el tema claro por defecto, pero sube la densidad de información y el peso visual: tarjetas con datos agrupados, chips de color, cifras grandes y jerarquía clara, en la línea de apps de escandallos más visuales, sin pasar a tema oscuro ni a un panel de cifras agregadas en el inicio.
 
 | Papel | Color | Hex | Dónde se usa |
 | --- | --- | --- | --- |
@@ -216,49 +216,92 @@ Costing Pro se usa sentado y con calma, así que el diseño es claro, espacioso 
 | Terciario | Ciruela | #6B4A6E | Subrecetas y etiquetas de categoría |
 | Fondo | Marfil cálido | #FAF7F2 | Fondo de todas las pantallas |
 | Superficie | Blanco | #FFFFFF | Tarjetas y campos |
+| Superficie alterna | Marfil medio | #F1ECE2 | Chips, filas alternas, fondo de los stat-blocks |
 | Texto | Tinta | #1E2A2E | Texto y cifras de coste |
+| Texto secundario | Tinta atenuada | #5B6B6E | Etiquetas, notas, texto de apoyo |
 | Margen bueno | Verde | #2E7D5B | Food cost hasta 30 % |
 | Margen justo | Ocre | #B7791F | Food cost entre 30 % y 35 % |
 | Margen bajo | Rojo teja | #B5483A | Food cost por encima de 35 % |
 
-Reglas de uso:
+### Qué cambia respecto a la pantalla de ejemplo
 
-- **Cada color significa una cosa.** El coste va en tinta, el precio en ámbar y el margen en su color de estado. Los mismos significados en el editor, la lista, el detalle y el PDF.
-- **Equilibrio.** El marfil y el blanco ocupan la mayor parte de la pantalla; el verde petróleo marca la estructura; ámbar y ciruela son acentos y nunca rellenan áreas grandes.
-- **El color no va solo.** El estado del margen lleva también un icono o una palabra ("Bueno", "Justo", "Bajo").
-- **Tipografía.** Títulos en una serif elegante (Fraunces) y el resto en una sans limpia (Inter), con cifras tabulares para que los importes se alineen en columna. Las dos fuentes se incluyen como recursos de la app.
-- **Espacio y forma.** Rejilla de 8 dp, márgenes amplios, tarjetas con esquinas de 12 dp y sombra suave. Los campos tienen tamaño normal de Material 3, no gigante.
-- **Bloque de resultado.** Coste, precio, beneficio y margen van en una tarjeta destacada al final del editor y arriba en el detalle, con el margen como cifra más grande.
+La captura de referencia (pantalla de detalle plana, de fondo claro) es el punto de partida a mejorar, no el resultado final. Mismos datos, pero reorganizados:
 
-Notas técnicas:
+| En la pantalla plana | En Costing Pro |
+| --- | --- |
+| Título y "Rinde 2,5 ración" en texto corrido | Título en serif grande; el rendimiento como chip pequeño al lado, no en una línea aparte |
+| "Margen 77,6 %" como único dato grande, badge "Bueno" suelto a la derecha | El % de margen y el estado ("Bueno"/"Justo"/"Bajo") viven en la misma pastilla de color, nunca por separado |
+| Coste, precio, PVP y beneficio en una lista de 2 columnas de texto llano | Los mismos 4 datos en una rejilla de 4 tarjetas pequeñas iguales, cada una con etiqueta en mayúsculas pequeñas arriba y cifra tabular grande debajo |
+| Alérgenos como chips de contorno, todos iguales | Chips rellenos en tono ciruela suave, con icono por alérgeno; el bloque tiene fondo propio en vez de flotar sobre el blanco |
+| Mucho espacio en blanco sin información (foto muy alta, poco debajo) | Foto recortada a una franja fija (relación 16:9) con el nombre y el chip de margen superpuestos abajo, en degradado oscuro sobre la foto |
+
+### Tarjeta de resultado (editor y detalle)
+
+El bloque de coste/precio/margen es la pieza más importante de la app y se diseña como un componente propio, reutilizado en el editor y en el detalle:
+
+- Fondo marfil medio, esquinas de 16 dp, sin sombra (se distingue por el color de fondo, no por elevación).
+- Fila superior: "Margen" en etiqueta pequeña, el % en cifra muy grande (serif, tabular) y a la derecha una pastilla de color (verde/ocre/rojo teja) con el estado en texto, todo en la misma línea.
+- Debajo, una rejilla de 2×2: Coste por unidad, Precio neto, PVP con IVA, Beneficio por unidad. Cada celda: etiqueta en mayúsculas pequeñas y gris, cifra debajo en tinta, tamaño uniforme entre las cuatro.
+- Una línea divisoria fina separa la fila de margen de la rejilla, no un hueco en blanco.
+
+### Lista de recetas (pantalla de inicio)
+
+Cada fila es una tarjeta, no una línea de texto:
+
+- Miniatura cuadrada de la foto a la izquierda (o un icono de plato si no hay foto), con esquinas redondeadas.
+- Nombre en negrita; debajo, coste por unidad y precio neto en una línea secundaria más pequeña.
+- A la derecha, la misma pastilla de color del margen que en el detalle (no solo el número suelto), para que el estado se vea sin abrir la receta.
+- Separación por tarjetas con margen entre ellas (no una lista con líneas divisorias), fondo blanco sobre el marfil de la pantalla.
+
+### Tipografía y jerarquía
+
+- Serif elegante (Fraunces) solo para: título de la receta y la cifra de margen. El resto, siempre en Inter.
+- Tres tamaños de texto como mucho por pantalla: título, cifra destacada, texto de apoyo. Nunca párrafos largos de texto corrido donde quepa una tabla o una rejilla de datos.
+- Cifras siempre con fuente tabular, para que los importes alineen en columna en listas y rejillas.
+- Etiquetas ("COSTE POR UNIDAD", "PRECIO NETO") en mayúsculas pequeñas, tinta atenuada, para que no compitan con la cifra.
+
+### Notas técnicas
 
 - Material 3 con esquema de color propio definido en `ui/theme`; el color dinámico de Android queda desactivado.
-- El tema oscuro usa la misma paleta sobre un fondo gris azulado muy oscuro, con los tonos aclarados.
+- Tema oscuro: misma paleta sobre un fondo gris azulado muy oscuro, con los tonos aclarados; se revisa en una fase posterior, no bloquea las fases 1 a 9.
 - Todos los pares de texto y fondo deben cumplir contraste AA; si un hex no llega, se ajusta el tono sin cambiar el papel.
 - Los umbrales de 30 % y 35 % son constantes en un solo sitio del código.
+- La tarjeta de resultado y la fila de la lista de recetas son composables propios y reutilizables (`ResultCard`, `RecipeListItem`), no vistas distintas repetidas en cada pantalla.
 
 ## Fases de desarrollo
 
 Nueve fases en orden. Al terminar la fase 5 la app ya hace lo básico: crear un escandallo, guardarlo, verlo y ponerle foto. Cada fase acaba con la app compilando y su criterio cumplido.
 
 1. **Proyecto y motor de cálculo.** Proyecto Compose vacío, estructura de paquetes y `CostCalculator` con sus tests.
-   - Hecho cuando: los tests reproducen el caso de las galletas y el ejemplo de merma del langostino.
+    - Hecho cuando: los tests reproducen el caso de las galletas y el ejemplo de merma del langostino.
 2. **Base de datos.** Entidades, DAOs, base de datos Room y repositorios, con el esquema completo. Datos de ejemplo al primer arranque.
-   - Hecho cuando: un test de instrumentación guarda y lee una receta con filas y extras.
+    - Hecho cuando: un test de instrumentación guarda y lee una receta con filas y extras.
 3. **Catálogo de ingredientes.** Lista, buscador, alta, edición y borrado, aún sin alérgenos.
-   - Hecho cuando: se crea "Harina, 25 kg a 22,50 €" y la lista muestra 0,90 €/kg.
+    - Hecho cuando: se crea "Harina, 25 kg a 22,50 €" y la lista muestra 0,90 €/kg.
 4. **Editor de escandallo.** Título, rendimiento, filas con autocompletado, merma, totales en vivo, los tres campos de precio enlazados y Guardar.
-   - Hecho cuando: se monta la receta de galletas sin extras y la pantalla da 5,19 € de lote y 0,13 € por unidad.
+    - Hecho cuando: se monta la receta de galletas sin extras y la pantalla da 5,19 € de lote y 0,13 € por unidad.
 5. **Lista, detalle y foto.** Pantalla de inicio, detalle con desglose, añadir foto desde cámara o galería, editar, duplicar y borrar.
-   - Hecho cuando: la foto sigue visible tras cerrar y reabrir la app.
+    - Hecho cuando: la foto sigue visible tras cerrar y reabrir la app.
 6. **Subrecetas.** Las recetas aparecen en el autocompletado, con comprobación de ciclos y recalculado en cascada.
-   - Hecho cuando: al subir el precio de un ingrediente de una salsa, cambia el coste del plato que la usa.
+    - Hecho cuando: al subir el precio de un ingrediente de una salsa, cambia el coste del plato que la usa.
 7. **Costes extra e IVA.** Sección de extras en el editor, IVA por receta, PVP con IVA editable y pantalla de Ajustes con el IVA por defecto.
-   - Hecho cuando: el caso de las galletas completo da 0,18 € por unidad y 1,10 € de PVP.
+    - Hecho cuando: el caso de las galletas completo da 0,18 € por unidad y 1,10 € de PVP.
 8. **Alérgenos.** Casillas en la ficha del ingrediente y alérgenos heredados en el detalle de la receta, también a través de subrecetas.
-   - Hecho cuando: una receta con harina y huevo muestra gluten y huevos.
+    - Hecho cuando: una receta con harina y huevo muestra gluten y huevos.
 9. **PDF y copia de seguridad.** PDF de una página con foto, tabla de filas, totales, precio, margen y alérgenos. Exportar e importar el .zip desde Ajustes.
-   - Hecho cuando: se exporta, se borran los datos de la app, se importa y todo vuelve, fotos incluidas.
+    - Hecho cuando: se exporta, se borran los datos de la app, se importa y todo vuelve, fotos incluidas.
+
+## Fase 10: Rediseño visual
+
+Las 9 fases anteriores ya están hechas; esto es trabajo nuevo sobre la app ya construida, para llevarla al diseño de la sección **Diseño visual** (versión densa, no la plana original). Se hace pantalla por pantalla, sin tocar `CostCalculator` ni el modelo de datos.
+
+1. **Componentes base.** Crear `ResultCard` (cifra de margen + pastilla de estado + rejilla 2×2 de coste/precio/PVP/beneficio) y `RecipeListItem` (miniatura, nombre, coste/precio en línea secundaria, pastilla de margen a la derecha) como composables reutilizables en `ui/components`.
+2. **Lista de recetas.** Sustituir las filas de texto actuales por `RecipeListItem`.
+3. **Detalle de receta.** Sustituir el bloque de resumen actual por `ResultCard`; foto recortada a 16:9 con nombre y pastilla de margen superpuestos en degradado; alérgenos como chips rellenos en ciruela con icono, sobre un bloque con fondo propio.
+4. **Editor de escandallo.** El bloque de totales/precio/margen del final pasa a usar `ResultCard` en lugar de texto suelto.
+5. **Tipografía y colores.** Aplicar Fraunces solo a título y cifra de margen, Inter al resto; etiquetas en mayúsculas pequeñas con el color "texto secundario" (#5B6B6E); añadir el color "superficie alterna" (#F1ECE2) donde la sección de diseño lo pide.
+
+Hecho cuando: la pantalla de detalle de una receta real (por ejemplo, Crispy Brownie) muestra el margen y su pastilla de estado en la misma línea, los cuatro datos en rejilla 2×2, y la lista de recetas muestra la pastilla de margen en cada fila.
 
 ## Fuera de alcance e ideas futuras
 

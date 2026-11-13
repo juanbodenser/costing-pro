@@ -1,5 +1,6 @@
 package com.jboden.costingpro.ui
 
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -114,7 +115,9 @@ class RecipeEditorTest {
 
         waitForText("5,19 €")
         compose.onNodeWithText("5,19 €").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("0,13 €").performScrollTo().assertIsDisplayed()
+        // The unit cost shows in the totals and again in the result card.
+        assertEquals(2, compose.onAllNodesWithText("0,13 €").fetchSemanticsNodes().size)
+        compose.onAllNodesWithText("0,13 €").onFirst().performScrollTo().assertIsDisplayed()
     }
 
     @Test

@@ -17,7 +17,8 @@ private val LightColorScheme = lightColorScheme(
     onBackground = Ink,
     surface = White,
     onSurface = Ink,
-    onSurfaceVariant = InkMuted,
+    surfaceVariant = IvoryMedium,
+    onSurfaceVariant = InkSecondary,
     outline = OutlineLight,
     error = ErrorLight,
     onError = White,
@@ -34,6 +35,7 @@ private val DarkColorScheme = darkColorScheme(
     onBackground = NightText,
     surface = NightSurface,
     onSurface = NightText,
+    surfaceVariant = NightSurfaceAlt,
     onSurfaceVariant = NightTextMuted,
     outline = OutlineDark,
     error = ErrorDark,
@@ -48,6 +50,7 @@ fun CostingProTheme(
 ) {
     MaterialTheme(
         colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
+        typography = CostingTypography,
         content = content,
     )
 }

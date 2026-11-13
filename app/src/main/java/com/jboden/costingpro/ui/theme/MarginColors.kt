@@ -11,6 +11,10 @@ private val MarginGood = Color(0xFF2E7D5B)
 private val MarginFair = Color(0xFFB7791F)
 private val MarginLow = Color(0xFFB5483A)
 
+// White text on the plan's ochre only reaches 3.6:1, so the filled pill uses a darker
+// ochre (5.3:1). Same role, adjusted tone, as the plan allows.
+private val MarginFairStrong = Color(0xFF96600F)
+
 // Lightened tones for the dark theme.
 private val MarginGoodDark = Color(0xFF6CC9A0)
 private val MarginFairDark = Color(0xFFE0B04E)
@@ -30,3 +34,14 @@ fun MarginStatus.color(): Color {
         MarginStatus.LOW -> if (dark) MarginLowDark else MarginLow
     }
 }
+
+/** Fill of the margin pill, and colour of the large margin figure. Pair it with [onPillColor]. */
+@Composable
+@ReadOnlyComposable
+fun MarginStatus.pillColor(): Color =
+    if (this == MarginStatus.FAIR && !isSystemInDarkTheme()) MarginFairStrong else color()
+
+/** Text and icons on [pillColor]: white on the light theme, the night background on the dark one. */
+@Composable
+@ReadOnlyComposable
+fun onPillColor(): Color = if (isSystemInDarkTheme()) NightBackground else White

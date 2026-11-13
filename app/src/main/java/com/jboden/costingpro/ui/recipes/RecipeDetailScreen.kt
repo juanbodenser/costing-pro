@@ -10,18 +10,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,12 +36,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -58,11 +53,19 @@ import com.jboden.costingpro.ui.common.labelRes
 import com.jboden.costingpro.domain.Allergen
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
-import com.jboden.costingpro.ui.theme.color
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
+import com.jboden.costingpro.ui.components.AllergenChip
+import com.jboden.costingpro.ui.components.MarginPill
+import com.jboden.costingpro.ui.components.ResultCard
+import com.jboden.costingpro.ui.theme.RecipeTitleStyle
 import java.io.File
-import java.math.BigDecimal
 
 @Composable
 fun RecipeDetailScreen(
@@ -157,9 +160,8 @@ fun RecipeDetailScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            PhotoSection(
-                recipeName = summary.name,
-                photoPath = summary.photoPath,
+            RecipeHeader(
+                summary = summary,
                 photoFile = photoFile,
                 onChoose = viewModel::openPhotoOptions,
                 onRemove = viewModel::removePhoto,
@@ -168,23 +170,15 @@ fun RecipeDetailScreen(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(text = summary.name, style = MaterialTheme.typography.headlineSmall)
-                    Text(
-                        text = stringResource(
-                            R.string.recipe_yield_summary,
-                            stringResource(
-                                R.string.quantity_with_unit,
-                                Formats.number(summary.yieldQuantity),
-                                stringResource(summary.yieldUnit.labelRes),
-                            ),
-                        ),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                SummaryCard(summary)
-                AllergensCard(summary.allergens)
+                ResultCard(
+                    marginPct = summary.price?.marginPct,
+                    status = summary.status,
+                    unitCost = summary.cost.unitCost,
+                    netPrice = summary.price?.netPrice,
+                    priceWithVat = summary.price?.priceWithVat,
+                    profitPerUnit = summary.price?.profitPerUnit,
+                )
+                AllergensBlock(summary.allergens)
                 BreakdownCard(
                     rows = state.breakdown,
                     sortByCost = state.sortByCost,
@@ -291,25 +285,71 @@ internal fun pdfFileName(recipeName: String): String {
     return "${clean.ifEmpty { "escandallo" }}.pdf"
 }
 
-/** The photo at the top, or the button to add one. */
+/**
+ * The top of the screen. With a photo: the photo cropped to 16:9, with the name, the yield chip
+ * and the margin pill over a dark gradient at its bottom. Without one: the name and the yield
+ * chip, and the button to add a photo.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PhotoSection(
-    recipeName: String,
-    photoPath: String?,
+private fun RecipeHeader(
+    summary: RecipeSummary,
     photoFile: (String) -> File,
     onChoose: () -> Unit,
     onRemove: () -> Unit,
 ) {
+    val yieldText = stringResource(
+        R.string.recipe_yield_summary,
+        stringResource(
+            R.string.quantity_with_unit,
+            Formats.number(summary.yieldQuantity),
+            stringResource(summary.yieldUnit.labelRes),
+        ),
+    )
+    val photoPath = summary.photoPath
     if (photoPath != null) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            AsyncImage(
-                model = photoFile(photoPath),
-                contentDescription = stringResource(R.string.recipe_photo_description, recipeName),
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(240.dp),
-                contentScale = ContentScale.Crop,
-            )
+                    .aspectRatio(16f / 9f),
+            ) {
+                AsyncImage(
+                    model = photoFile(photoPath),
+                    contentDescription = stringResource(R.string.recipe_photo_description, summary.name),
+                    modifier = Modifier.matchParentSize(),
+                    contentScale = ContentScale.Crop,
+                )
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(
+                            Brush.verticalGradient(
+                                0f to Color.Transparent,
+                                0.35f to Color.Transparent,
+                                1f to Color.Black.copy(alpha = 0.78f),
+                            ),
+                        ),
+                )
+                FlowRow(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    itemVerticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = summary.name,
+                        style = RecipeTitleStyle,
+                        color = Color.White,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    YieldChip(yieldText, overPhoto = true)
+                    summary.status?.let { MarginPill(it, marginPct = summary.price?.marginPct) }
+                }
+            }
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -319,51 +359,40 @@ private fun PhotoSection(
             }
         }
     } else {
-        SectionCard(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
-            Button(onClick = onChoose, modifier = Modifier.fillMaxWidth()) {
-                Icon(painterResource(R.drawable.ic_photo_camera), contentDescription = null)
+        Column(
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                itemVerticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(text = summary.name, style = RecipeTitleStyle)
+                YieldChip(yieldText, overPhoto = false)
+            }
+            OutlinedButton(onClick = onChoose) {
+                Icon(painterResource(R.drawable.ic_photo_camera), contentDescription = null, modifier = Modifier.size(18.dp))
                 Text(text = stringResource(R.string.photo_add), modifier = Modifier.padding(start = 8.dp))
             }
         }
     }
 }
 
-/** Margin as the biggest figure, then cost, price, VAT price and profit. */
+/** The yield of the recipe as a small chip next to its name. */
 @Composable
-private fun SummaryCard(summary: RecipeSummary) {
-    val price = summary.price
-    val status = summary.status
-    SectionCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Bottom,
-        ) {
-            Column {
-                Text(
-                    text = stringResource(R.string.result_margin),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = price?.marginPct?.let { Formats.percent(it) } ?: stringResource(R.string.value_missing),
-                    style = MaterialTheme.typography.displaySmall.merge(TabularFigures),
-                    fontWeight = FontWeight.SemiBold,
-                    color = status?.color() ?: MaterialTheme.colorScheme.onSurface,
-                )
-            }
-            if (status != null) StatusLabel(status)
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ResultFigure(R.string.detail_unit_cost, summary.cost.unitCost, Modifier.weight(1f))
-            ResultFigure(R.string.detail_net_price, price?.netPrice, Modifier.weight(1f))
-        }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ResultFigure(R.string.detail_price_with_vat, price?.priceWithVat, Modifier.weight(1f))
-            ResultFigure(R.string.detail_profit_unit, price?.profitPerUnit, Modifier.weight(1f))
-        }
-    }
+private fun YieldChip(text: String, overPhoto: Boolean) {
+    Text(
+        text = text,
+        modifier = Modifier
+            .background(
+                if (overPhoto) Color.White.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surfaceVariant,
+                CircleShape,
+            )
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        style = MaterialTheme.typography.labelLarge.merge(TabularFigures),
+        color = if (overPhoto) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable
@@ -386,17 +415,26 @@ private fun BreakdownCard(rows: List<BreakdownRow>, sortByCost: Boolean, onToggl
                 colors = costingChipColors(),
             )
         }
-        rows.forEachIndexed { index, row ->
-            if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-            BreakdownLine(row)
+        Column {
+            rows.forEachIndexed { index, row ->
+                BreakdownLine(
+                    row = row,
+                    modifier = Modifier
+                        .background(
+                            if (index % 2 == 1) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent,
+                            RoundedCornerShape(8.dp),
+                        )
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun BreakdownLine(row: BreakdownRow) {
+private fun BreakdownLine(row: BreakdownRow, modifier: Modifier = Modifier) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -446,11 +484,20 @@ private fun BreakdownLine(row: BreakdownRow) {
     }
 }
 
-/** The allergens of the recipe, inherited from its ingredients and sub-recipes. */
+/**
+ * The allergens of the recipe, inherited from its ingredients and sub-recipes, as filled plum
+ * chips with icons on a block with its own background.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AllergensCard(allergens: Set<Allergen>) {
-    SectionCard {
+private fun AllergensBlock(allergens: Set<Allergen>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         Text(
             text = stringResource(R.string.detail_allergens),
             style = MaterialTheme.typography.titleMedium,
@@ -467,16 +514,7 @@ private fun AllergensCard(allergens: Set<Allergen>) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                allergens.forEach { allergen ->
-                    Text(
-                        text = stringResource(allergen.labelRes),
-                        modifier = Modifier
-                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
+                allergens.forEach { AllergenChip(it) }
             }
         }
     }

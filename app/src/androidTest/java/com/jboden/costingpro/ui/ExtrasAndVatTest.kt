@@ -1,5 +1,6 @@
 package com.jboden.costingpro.ui
 
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -119,7 +120,9 @@ class ExtrasAndVatTest {
 
         // 5,19 € of ingredients and 2,00 € of bags: 7,19 € a batch and 0,18 € a unit.
         waitForText("7,19 €")
-        compose.onNodeWithText("0,18 €").performScrollTo().assertIsDisplayed()
+        // The unit cost shows in the totals and again in the result card.
+        assertEquals(2, compose.onAllNodesWithText("0,18 €").fetchSemanticsNodes().size)
+        compose.onAllNodesWithText("0,18 €").onFirst().performScrollTo().assertIsDisplayed()
         // 10 % VAT is the default: the price with VAT field shows 1,10.
         compose.onNodeWithText("PVP con IVA").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("1,10").assertExists()
