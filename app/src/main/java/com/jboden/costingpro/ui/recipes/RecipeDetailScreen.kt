@@ -368,6 +368,13 @@ private fun BreakdownLine(row: BreakdownRow) {
                 text = row.name ?: stringResource(R.string.breakdown_extras),
                 style = MaterialTheme.typography.bodyLarge,
             )
+            if (row.isExtra) {
+                Text(
+                    text = stringResource(R.string.breakdown_extra),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             if (row.isSubRecipe) {
                 Text(
                     text = stringResource(R.string.line_sub_recipe),

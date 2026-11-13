@@ -71,7 +71,7 @@ class RecipeSummaryTest {
     fun `the breakdown lists each row with its share of the batch cost, extras last`() {
         val breakdown = RecipeSummaryLogic.summarize(cookies(), catalogue).breakdown
 
-        assertEquals(listOf("Harina", "Mantequilla", "Azúcar", "Chocolate", "Huevos", null), breakdown.map { it.name })
+        assertEquals(listOf("Harina", "Mantequilla", "Azúcar", "Chocolate", "Huevos", "Bolsa"), breakdown.map { it.name })
         assertEquals(listOf("0.45", "2.00", "0.24", "2.00", "0.50", "2.00"), breakdown.map { it.cost.money() })
         // 2,00 € of 7,19 €.
         assertEquals("27.8", breakdown[1].sharePct.pct())
@@ -87,7 +87,7 @@ class RecipeSummaryTest {
 
         assertEquals(listOf("2.00", "2.00", "2.00", "0.50", "0.45", "0.24"), sorted.map { it.cost.money() })
         // Equal costs keep their recipe order.
-        assertEquals(listOf("Mantequilla", "Chocolate", null), sorted.take(3).map { it.name })
+        assertEquals(listOf("Mantequilla", "Chocolate", "Bolsa"), sorted.take(3).map { it.name })
     }
 
     @Test
@@ -127,6 +127,6 @@ class RecipeSummaryTest {
             catalogue - 5L,
         )
 
-        assertEquals(listOf("Harina", "Mantequilla", "Azúcar", "Chocolate", null), summary.breakdown.map { it.name })
+        assertEquals(listOf("Harina", "Mantequilla", "Azúcar", "Chocolate", "Bolsa"), summary.breakdown.map { it.name })
     }
 }

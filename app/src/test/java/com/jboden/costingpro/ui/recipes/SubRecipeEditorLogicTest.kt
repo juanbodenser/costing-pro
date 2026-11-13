@@ -52,7 +52,7 @@ class SubRecipeEditorLogicTest {
             lines = listOf(subLine(1, 10, "500", MeasureUnit.ML)),
         )
 
-        val result = RecipeEditorLogic.derive(form, catalogue, emptyList(), 10.0, recipes)
+        val result = RecipeEditorLogic.derive(form, catalogue, recipes)
 
         // 500 ml of a sauce that costs 3,00 € a litre.
         assertMoney("1.50", result.lines[0].cost)
@@ -65,7 +65,7 @@ class SubRecipeEditorLogicTest {
     fun `a recipe row without quantity still shows the unit price of the recipe`() {
         val form = RecipeForm(lines = listOf(subLine(1, 10, "", MeasureUnit.ML)))
 
-        val result = RecipeEditorLogic.derive(form, catalogue, emptyList(), 10.0, recipes)
+        val result = RecipeEditorLogic.derive(form, catalogue, recipes)
 
         assertNull(result.lines[0].cost)
         assertMoney("3.00", result.lines[0].unitPrice)
@@ -108,7 +108,7 @@ class SubRecipeEditorLogicTest {
         val form = RecipeForm(name = "Salsa", yieldQuantity = "1", lines = listOf(subLine(1, 10, "1", MeasureUnit.L)))
 
         assertFalse(RecipeEditorLogic.validate(form, catalogue, recipes, selfId = 10).ok)
-        val result = RecipeEditorLogic.derive(form, catalogue, emptyList(), 10.0, recipes, selfId = 10)
+        val result = RecipeEditorLogic.derive(form, catalogue, recipes, selfId = 10)
         assertNull(result.lines[0].cost)
     }
 

@@ -5,8 +5,7 @@
     <string name="tab_recipes">Recetas</string>
     <string name="tab_ingredients">Ingredientes</string>
     <string name="tab_settings">Ajustes</string>
-        <string name="settings_placeholder">Los ajustes aparecerán aquí.</string>
-
+    
     <!-- Acciones comunes -->
     <string name="action_back">Volver</string>
     <string name="action_save">Guardar</string>
@@ -38,6 +37,7 @@
     <string name="error_pick_ingredient">Elige un ingrediente de la lista</string>
     <string name="error_unit_mismatch">Esta unidad no es compatible con el ingrediente</string>
     <string name="error_cycle">Esta receta no se puede usar aquí: acabaría conteniéndose a sí misma</string>
+    <string name="error_vat_range">El IVA debe estar entre 0 y 100 %</string>
     <string name="error_ingredient_duplicate">Ya hay un ingrediente con este nombre</string>
 
     <!-- Catálogo de ingredientes -->
@@ -76,6 +76,13 @@
     <string name="recipe_yield">Rendimiento</string>
     <string name="recipe_ingredients">Ingredientes</string>
     <string name="recipe_add_ingredient">Añadir ingrediente</string>
+    <string name="recipe_extras">Costes extra</string>
+    <string name="extras_hint">Envase, mano de obra… Los importes van sin IVA.</string>
+    <string name="recipe_add_extra">Añadir coste extra</string>
+    <string name="extra_name">Concepto</string>
+    <string name="extra_amount">Importe</string>
+    <string name="extra_per_batch">Por lote</string>
+    <string name="extra_per_unit">Por unidad</string>
     <string name="line_ingredient">Ingrediente</string>
     <string name="line_sub_recipe">Subreceta</string>
     <string name="suggestion_recipe">Receta</string>
@@ -87,10 +94,12 @@
     <string name="totals_extras">Extras</string>
     <string name="totals_cost">Coste</string>
     <string name="pricing_title">Precio de venta</string>
-    <string name="pricing_hint">Escribe uno de los tres datos y se calculan los otros dos.</string>
+    <string name="pricing_hint">Escribe el precio neto, el incremento, el food cost o el PVP y se calculan los demás.</string>
     <string name="pricing_net_price">Precio neto por unidad</string>
     <string name="pricing_markup">Incremento</string>
     <string name="pricing_food_cost">Food cost</string>
+    <string name="pricing_vat">IVA</string>
+    <string name="pricing_price_with_vat">PVP con IVA</string>
     <string name="result_margin">Margen</string>
     <string name="result_profit_unit">Beneficio por unidad</string>
     <string name="result_profit_batch">Beneficio por lote</string>
@@ -134,4 +143,10 @@
     <string name="recipe_delete_title">¿Borrar escandallo?</string>
     <string name="recipe_delete_message">«%1$s» se borrará con sus filas y su foto.</string>
     <string name="recipe_delete_blocked_message">Este escandallo se usa como subreceta en estas recetas. Quítalo de ellas antes de borrarlo.</string>
+
+    <!-- Ajustes -->
+    <string name="settings_vat_title">IVA por defecto</string>
+    <string name="settings_vat_label">IVA de venta</string>
+    <string name="settings_vat_hint">Se propone en los escandallos nuevos. Cada escandallo puede tener el suyo.</string>
+    <string name="breakdown_extra">Coste extra</string>
 </resources>

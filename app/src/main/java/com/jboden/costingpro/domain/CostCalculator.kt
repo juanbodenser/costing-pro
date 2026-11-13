@@ -29,10 +29,7 @@ object CostCalculator {
         val rawMaterial = lines.fold(BigDecimal.ZERO) { sum, line -> sum + (line.cost ?: BigDecimal.ZERO) }
 
         val hasYield = recipe.yieldQuantity.signum() > 0
-        val batchExtras = recipe.extras.total(ExtraCostPer.BATCH)
-        val unitExtras = recipe.extras.total(ExtraCostPer.UNIT)
-        // Per-unit extras need a yield to be scaled to the batch; without one they cannot be counted.
-        val extras = if (hasYield) batchExtras + unitExtras.multiply(recipe.yieldQuantity) else batchExtras
+        val extras = recipe.extras.fold(BigDecimal.ZERO) { sum, extra -> sum + extraBatchCost(extra, recipe.yieldQuantity) }
         val batch = rawMaterial + extras
 
         return RecipeCost(
@@ -45,6 +42,15 @@ object CostCalculator {
             extrasUnitCost = if (hasYield) extras.divide(recipe.yieldQuantity, MC) else null,
             hasInvalidLines = lines.any { it.issue != null },
         )
+    }
+
+    /**
+     * What one extra cost adds to the batch: a per-batch extra as it is, a per-unit extra times the yield.
+     * A per-unit extra cannot be counted without a yield, so it adds nothing then.
+     */
+    fun extraBatchCost(extra: ExtraCostInput, yieldQuantity: BigDecimal): BigDecimal = when (extra.per) {
+        ExtraCostPer.BATCH -> extra.amount
+        ExtraCostPer.UNIT -> if (yieldQuantity.signum() > 0) extra.amount.multiply(yieldQuantity) else BigDecimal.ZERO
     }
 
     /** Cost of a single line: quantity × unit price ÷ (1 − waste ÷ 100). */
@@ -143,8 +149,6 @@ object CostCalculator {
     private fun percentOf(part: BigDecimal, whole: BigDecimal): BigDecimal =
         part.multiply(HUNDRED).divide(whole, MC)
 
-    private fun List<ExtraCostInput>.total(per: ExtraCostPer): BigDecimal =
-        filter { it.per == per }.fold(BigDecimal.ZERO) { sum, extra -> sum + extra.amount }
 }
 
 /** Rounds an amount to 2 decimals for display. */

@@ -2,10 +2,8 @@ package com.jboden.costingpro.ui
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -16,11 +14,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -34,7 +30,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.jboden.costingpro.AppContainer
 import com.jboden.costingpro.R
-import com.jboden.costingpro.ui.common.CostingTopBar
 import com.jboden.costingpro.ui.ingredients.IngredientEditScreen
 import com.jboden.costingpro.ui.ingredients.IngredientEditViewModel
 import com.jboden.costingpro.ui.ingredients.IngredientListScreen
@@ -45,6 +40,8 @@ import com.jboden.costingpro.ui.recipes.RecipeEditScreen
 import com.jboden.costingpro.ui.recipes.RecipeEditViewModel
 import com.jboden.costingpro.ui.recipes.RecipeListScreen
 import com.jboden.costingpro.ui.recipes.RecipeListViewModel
+import com.jboden.costingpro.ui.settings.SettingsScreen
+import com.jboden.costingpro.ui.settings.SettingsViewModel
 
 private object Routes {
     const val RECIPES = "recipes"
@@ -162,7 +159,8 @@ fun CostingProApp(container: AppContainer) {
                 )
             }
             composable(Routes.SETTINGS) {
-                PlaceholderScreen(title = R.string.tab_settings, message = R.string.settings_placeholder)
+                val viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.factory(container.settings))
+                SettingsScreen(viewModel)
             }
             composable(
                 route = Routes.RECIPE,
@@ -173,6 +171,7 @@ fun CostingProApp(container: AppContainer) {
                     factory = RecipeEditViewModel.factory(
                         container.recipeRepository,
                         container.ingredientRepository,
+                        container.settings,
                         recipeId,
                     ),
                 )
@@ -208,26 +207,5 @@ private fun NavHostController.switchTab(tab: Tab) {
         popUpTo(graph.findStartDestination().id) { saveState = true }
         launchSingleTop = true
         restoreState = true
-    }
-}
-
-/** Stands in for a tab whose screen belongs to a later phase. */
-@Composable
-private fun PlaceholderScreen(@StringRes title: Int, @StringRes message: Int) {
-    Scaffold(topBar = { CostingTopBar(title = stringResource(title)) }) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(32.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = stringResource(message),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-        }
     }
 }

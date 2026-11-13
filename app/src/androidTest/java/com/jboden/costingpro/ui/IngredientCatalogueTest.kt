@@ -27,6 +27,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Rule
+import org.junit.rules.RuleChain
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -34,18 +35,19 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class IngredientCatalogueTest {
 
-    @get:Rule
-    val compose = createComposeRule()
+    private val databaseRule = InMemoryDatabaseRule()
+    private val compose = createComposeRule()
 
-    private lateinit var database: CostingDatabase
+    // The database is closed last, after the screens and the view models have stopped using it.
+    @get:Rule
+    val rules: RuleChain = RuleChain.outerRule(databaseRule).around(compose)
+
+    private val database get() = databaseRule.database
+
     private lateinit var container: AppContainer
 
     @Before
     fun setUp() {
-        database = Room.inMemoryDatabaseBuilder(
-            ApplicationProvider.getApplicationContext(),
-            CostingDatabase::class.java,
-        ).build()
         container = AppContainer(
             createDatabase = { database },
             createPhotoStore = { PhotoStore(ApplicationProvider.getApplicationContext()) },
@@ -54,11 +56,6 @@ class IngredientCatalogueTest {
             CostingProTheme { CostingProApp(container) }
         }
         compose.onNodeWithText("Ingredientes").performClick()
-    }
-
-    @After
-    fun tearDown() {
-        database.close()
     }
 
     private fun waitForText(text: String) {
@@ -92,6 +89,8 @@ class IngredientCatalogueTest {
         waitForText("0,90 €/kg")
 
         compose.onNodeWithText("Harina").performClick()
+        // The form loads the ingredient asynchronously: wait until its price is in the field.
+        waitForText("22,50")
         compose.onNodeWithText("22,50").performTextReplacement("25.00")
         compose.onNodeWithText("Guardar").performScrollTo().performClick()
 
@@ -129,6 +128,8 @@ class IngredientCatalogueTest {
         waitForText("Harina")
 
         compose.onNodeWithText("Harina").performClick()
+        // The delete button only appears once the form has loaded.
+        waitForText("Precio unitario")
         compose.onNodeWithContentDescription("Borrar").performClick()
         waitForText("¿Borrar ingrediente?")
         compose.onNodeWithText("Borrar").performClick()

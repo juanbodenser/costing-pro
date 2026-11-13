@@ -12,6 +12,8 @@ import com.jboden.costingpro.data.Recipe
 import com.jboden.costingpro.data.RecipeLine
 import com.jboden.costingpro.data.RecipeRepository
 import com.jboden.costingpro.data.RecipeWithDetails
+import com.jboden.costingpro.data.SettingsStore
+import com.jboden.costingpro.domain.ExtraCostPer
 import com.jboden.costingpro.domain.MeasureUnit
 import com.jboden.costingpro.domain.PricingMode
 import com.jboden.costingpro.domain.RecipeGraph
@@ -55,6 +57,7 @@ data class RecipeEditUiState(
 class RecipeEditViewModel(
     private val recipes: RecipeRepository,
     private val ingredients: IngredientRepository,
+    private val settings: SettingsStore,
     private val recipeId: Long,
 ) : ViewModel() {
 
@@ -68,7 +71,10 @@ class RecipeEditViewModel(
 
     private val draft = MutableStateFlow(
         if (recipeId == NEW_ID) {
-            Draft(RecipeForm(lines = listOf(LineForm(key = 1))), loading = false)
+            Draft(
+                RecipeForm(lines = listOf(LineForm(key = 1)), vatPct = Formats.number(settings.defaultVatPct.value)),
+                loading = false,
+            )
         } else {
             Draft(RecipeForm(), loading = true)
         },
@@ -85,9 +91,6 @@ class RecipeEditViewModel(
     /** The stored recipe being edited. Keeps what the editor does not show: VAT, photo, notes and dates. */
     private var original: Recipe? = null
 
-    /** The stored extra costs. The editor does not show them yet; they are counted and saved back unchanged. */
-    private var extras: List<ExtraCost> = emptyList()
-
     val uiState: StateFlow<RecipeEditUiState> = combine(draft, catalogue, allRecipes) { draft, catalogue, stored ->
         val all = catalogue.orEmpty()
         val byId = all.associateBy { it.id }
@@ -97,7 +100,7 @@ class RecipeEditViewModel(
             isNew = recipeId == NEW_ID,
             loading = draft.loading || catalogue == null || stored == null,
             form = form,
-            result = RecipeEditorLogic.derive(form, byId, extras, vatPct(), recipesById, recipeId),
+            result = RecipeEditorLogic.derive(form, byId, recipesById, recipeId),
             catalogue = items(all, stored.orEmpty()),
             rows = form.lines.map { line ->
                 RowInfo(RecipeEditorLogic.unitsFor(line, byId, recipesById), isRecipe = line.subRecipeId != null)
@@ -113,7 +116,7 @@ class RecipeEditViewModel(
             isNew = recipeId == NEW_ID,
             loading = true,
             form = RecipeForm(),
-            result = RecipeEditorLogic.derive(RecipeForm(), emptyMap(), emptyList(), Recipe.DEFAULT_VAT_PCT),
+            result = RecipeEditorLogic.derive(RecipeForm(), emptyMap()),
             catalogue = emptyList(),
             rows = emptyList(),
             errors = null,
@@ -133,7 +136,6 @@ class RecipeEditViewModel(
                     return@launch
                 }
                 original = details.recipe
-                extras = details.extras
                 val lines = details.lines.mapNotNull { line ->
                     val ingredient = line.ingredientId?.let { ingredients.get(it) }
                     val subRecipe = line.subRecipeId?.let { recipes.get(it) }
@@ -146,6 +148,14 @@ class RecipeEditViewModel(
                         quantity = Formats.number(line.quantity),
                         unit = line.unit,
                         waste = wasteText(line.wastePct),
+                    )
+                }
+                val extras = details.extras.map { extra ->
+                    ExtraForm(
+                        key = nextKey++,
+                        name = extra.name,
+                        amount = Formats.number(extra.amount, minDecimals = 2),
+                        per = extra.per,
                     )
                 }
                 val recipe = details.recipe
@@ -163,7 +173,9 @@ class RecipeEditViewModel(
                             yieldQuantity = if (recipe.yieldQuantity == 0.0) "" else Formats.number(recipe.yieldQuantity),
                             yieldUnit = recipe.yieldUnit,
                             lines = lines,
-                            pricingMode = recipe.pricingMode,
+                            extras = extras,
+                            vatPct = Formats.number(recipe.vatPct),
+                            priceField = PriceField.of(recipe.pricingMode),
                             pricingText = pricingText,
                         ),
                     )
@@ -171,8 +183,6 @@ class RecipeEditViewModel(
             }
         }
     }
-
-    private fun vatPct() = original?.vatPct ?: Recipe.DEFAULT_VAT_PCT
 
     private fun wasteText(pct: Double) = if (pct == 0.0) "" else Formats.number(pct)
 
@@ -231,12 +241,35 @@ class RecipeEditViewModel(
 
     fun onLineWasteChange(key: Long, value: String) = updateLine(key) { it.copy(waste = value) }
 
-    fun onPriceChange(value: String) = updateForm { it.copy(pricingMode = PricingMode.PRICE, pricingText = value) }
+    // ---------- Extra costs ----------
 
-    fun onMarkupChange(value: String) = updateForm { it.copy(pricingMode = PricingMode.MARKUP, pricingText = value) }
+    fun addExtra() = updateForm { it.copy(extras = it.extras + ExtraForm(key = nextKey++)) }
+
+    fun removeExtra(key: Long) = updateForm { form -> form.copy(extras = form.extras.filterNot { it.key == key }) }
+
+    private fun updateExtra(key: Long, change: (ExtraForm) -> ExtraForm) = updateForm { form ->
+        form.copy(extras = form.extras.map { if (it.key == key) change(it) else it })
+    }
+
+    fun onExtraNameChange(key: Long, value: String) = updateExtra(key) { it.copy(name = value) }
+
+    fun onExtraAmountChange(key: Long, value: String) = updateExtra(key) { it.copy(amount = value) }
+
+    fun onExtraPerChange(key: Long, value: ExtraCostPer) = updateExtra(key) { it.copy(per = value) }
+
+    // ---------- Price and VAT ----------
+
+    fun onVatChange(value: String) = updateForm { it.copy(vatPct = value) }
+
+    fun onPriceChange(value: String) = updateForm { it.copy(priceField = PriceField.NET_PRICE, pricingText = value) }
+
+    fun onMarkupChange(value: String) = updateForm { it.copy(priceField = PriceField.MARKUP, pricingText = value) }
 
     fun onFoodCostChange(value: String) =
-        updateForm { it.copy(pricingMode = PricingMode.FOOD_COST, pricingText = value) }
+        updateForm { it.copy(priceField = PriceField.FOOD_COST, pricingText = value) }
+
+    fun onPriceWithVatChange(value: String) =
+        updateForm { it.copy(priceField = PriceField.PRICE_WITH_VAT, pricingText = value) }
 
     private fun LineForm.isSelected(item: CatalogueItem) =
         if (item.isRecipe) subRecipeId == item.id else ingredientId == item.id
@@ -282,14 +315,22 @@ class RecipeEditViewModel(
         val form = current.form
         val yieldQuantity = Formats.parseDecimal(form.yieldQuantity)?.toDouble() ?: 0.0
         // A price field that was cleared counts as no price at all.
-        val priceValue = Formats.parseDecimal(form.pricingText)?.toDouble()
+        val pricing = RecipeEditorLogic.storedPricing(form)
         val recipe = (original ?: Recipe(name = "", yieldQuantity = 0.0, yieldUnit = form.yieldUnit)).copy(
             name = form.name.trim(),
             yieldQuantity = yieldQuantity,
             yieldUnit = form.yieldUnit,
-            pricingMode = if (priceValue == null) PricingMode.PRICE else form.pricingMode,
-            pricingValue = priceValue ?: 0.0,
+            pricingMode = pricing?.mode ?: PricingMode.PRICE,
+            pricingValue = pricing?.value ?: 0.0,
+            vatPct = Formats.parseDecimal(form.vatPct)!!.toDouble(),
         )
+        val extras = validation.extras.map { extra ->
+            ExtraCost(
+                name = extra.name.trim(),
+                amount = Formats.parseDecimal(extra.amount)!!.toDouble(),
+                per = extra.per,
+            )
+        }
         val lines = validation.lines.map { line ->
             RecipeLine(
                 ingredientId = line.ingredientId,
@@ -311,9 +352,10 @@ class RecipeEditViewModel(
         fun factory(
             recipes: RecipeRepository,
             ingredients: IngredientRepository,
+            settings: SettingsStore,
             recipeId: Long,
         ): ViewModelProvider.Factory = viewModelFactory {
-            initializer { RecipeEditViewModel(recipes, ingredients, recipeId) }
+            initializer { RecipeEditViewModel(recipes, ingredients, settings, recipeId) }
         }
     }
 }

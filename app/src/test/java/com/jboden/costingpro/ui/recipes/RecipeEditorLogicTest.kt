@@ -1,6 +1,5 @@
 package com.jboden.costingpro.ui.recipes
 
-import com.jboden.costingpro.data.ExtraCost
 import com.jboden.costingpro.data.Ingredient
 import com.jboden.costingpro.domain.ExtraCostPer
 import com.jboden.costingpro.domain.MarginStatus
@@ -45,8 +44,7 @@ class RecipeEditorLogicTest {
         ),
     )
 
-    private fun derive(form: RecipeForm, extras: List<ExtraCost> = emptyList()) =
-        RecipeEditorLogic.derive(form, catalogue, extras, vatPct = 10.0)
+    private fun derive(form: RecipeForm) = RecipeEditorLogic.derive(form, catalogue)
 
     private fun assertMoney(expected: String, actual: BigDecimal?) {
         assertEquals(0, BigDecimal(expected).compareTo(actual!!.setScale(2, java.math.RoundingMode.HALF_UP)))
@@ -62,10 +60,10 @@ class RecipeEditorLogicTest {
     }
 
     @Test
-    fun `stored extras count in the cost`() {
-        val bag = ExtraCost(name = "Bolsa", amount = 0.05, per = ExtraCostPer.UNIT)
+    fun `extra costs count in the cost`() {
+        val bag = ExtraForm(key = 1, name = "Bolsa", amount = "0,05", per = ExtraCostPer.UNIT)
 
-        val result = derive(cookies, extras = listOf(bag))
+        val result = derive(cookies.copy(extras = listOf(bag)))
 
         assertMoney("7.19", result.cost.batchCost)
         assertMoney("0.18", result.cost.unitCost)
@@ -73,7 +71,7 @@ class RecipeEditorLogicTest {
 
     @Test
     fun `typing the price fills markup and food cost`() {
-        val result = derive(cookies.copy(pricingMode = PricingMode.PRICE, pricingText = "1"))
+        val result = derive(cookies.copy(priceField = PriceField.NET_PRICE, pricingText = "1"))
 
         assertEquals("1", result.fields.price)
         // 0,12975 € of cost on a 1,00 € price: food cost 13,0 %, markup 670,7 %.
@@ -84,7 +82,7 @@ class RecipeEditorLogicTest {
 
     @Test
     fun `typing the markup fills price and food cost`() {
-        val result = derive(cookies.copy(pricingMode = PricingMode.MARKUP, pricingText = "100"))
+        val result = derive(cookies.copy(priceField = PriceField.MARKUP, pricingText = "100"))
 
         // Double the cost: 0,2595 €, food cost 50 %.
         assertEquals("0,26", result.fields.price)
@@ -95,7 +93,7 @@ class RecipeEditorLogicTest {
 
     @Test
     fun `typing the food cost fills price and markup`() {
-        val result = derive(cookies.copy(pricingMode = PricingMode.FOOD_COST, pricingText = "30"))
+        val result = derive(cookies.copy(priceField = PriceField.FOOD_COST, pricingText = "30"))
 
         assertEquals("0,43", result.fields.price)
         assertEquals("233,3", result.fields.markup)
@@ -105,7 +103,7 @@ class RecipeEditorLogicTest {
 
     @Test
     fun `the price accepts a comma`() {
-        val result = derive(cookies.copy(pricingMode = PricingMode.PRICE, pricingText = "0,35"))
+        val result = derive(cookies.copy(priceField = PriceField.NET_PRICE, pricingText = "0,35"))
 
         assertEquals("0,35", result.fields.price)
         assertEquals("37,1", result.fields.foodCost)
@@ -116,7 +114,7 @@ class RecipeEditorLogicTest {
     fun `without a price the linked fields are blank and there is no margin`() {
         val result = derive(cookies)
 
-        assertEquals(PriceFields("", "", ""), result.fields)
+        assertEquals(PriceFields("", "", "", ""), result.fields)
         assertNull(result.price)
         assertNull(result.status)
     }
@@ -159,7 +157,7 @@ class RecipeEditorLogicTest {
             lines = listOf(line(1, prawn, "200", MeasureUnit.G, waste = "40")),
         )
 
-        val result = RecipeEditorLogic.derive(form, mapOf(9L to prawn), emptyList(), 10.0)
+        val result = RecipeEditorLogic.derive(form, mapOf(9L to prawn))
 
         assertMoney("6.00", result.lines[0].cost)
     }

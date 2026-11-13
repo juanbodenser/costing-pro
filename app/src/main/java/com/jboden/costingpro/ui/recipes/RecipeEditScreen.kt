@@ -60,6 +60,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jboden.costingpro.R
+import com.jboden.costingpro.domain.ExtraCostPer
 import com.jboden.costingpro.domain.LineIssue
 import com.jboden.costingpro.domain.MarginStatus
 import com.jboden.costingpro.domain.MeasureUnit
@@ -166,13 +167,43 @@ fun RecipeEditScreen(
                 )
             }
 
+            SectionTitle(R.string.recipe_extras)
+            Text(
+                text = stringResource(R.string.extras_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            form.extras.forEach { extra ->
+                key(extra.key) {
+                    ExtraCard(
+                        extra = extra,
+                        errors = errors?.extraErrors?.get(extra.key),
+                        onNameChange = { viewModel.onExtraNameChange(extra.key, it) },
+                        onAmountChange = { viewModel.onExtraAmountChange(extra.key, it) },
+                        onPerChange = { viewModel.onExtraPerChange(extra.key, it) },
+                        onRemove = { viewModel.removeExtra(extra.key) },
+                    )
+                }
+            }
+            OutlinedButton(onClick = viewModel::addExtra, modifier = Modifier.fillMaxWidth()) {
+                Icon(painterResource(R.drawable.ic_add), contentDescription = null, modifier = Modifier.size(18.dp))
+                Text(
+                    text = stringResource(R.string.recipe_add_extra),
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+
             TotalsCard(state.result)
 
             PricingSection(
                 fields = state.result.fields,
+                vat = form.vatPct,
+                vatError = errors?.vatError,
                 onPriceChange = viewModel::onPriceChange,
                 onMarkupChange = viewModel::onMarkupChange,
                 onFoodCostChange = viewModel::onFoodCostChange,
+                onVatChange = viewModel::onVatChange,
+                onPriceWithVatChange = viewModel::onPriceWithVatChange,
             )
 
             ResultCard(state.result)
@@ -221,21 +252,11 @@ private fun YieldRow(
     }
 }
 
+private val CardShape = RoundedCornerShape(12.dp)
+
+/** Lets the user delete a card by swiping it to the left. */
 @Composable
-private fun LineCard(
-    line: LineForm,
-    result: LineResult,
-    info: RowInfo,
-    errors: RowErrors?,
-    catalogue: List<CatalogueItem>,
-    onQueryChange: (String) -> Unit,
-    onPick: (CatalogueItem) -> Unit,
-    onQuantityChange: (String) -> Unit,
-    onUnitChange: (MeasureUnit) -> Unit,
-    onWasteChange: (String) -> Unit,
-    onRemove: () -> Unit,
-) {
-    val shape = RoundedCornerShape(12.dp)
+private fun SwipeToRemove(onRemove: () -> Unit, content: @Composable () -> Unit) {
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             if (value == SwipeToDismissBoxValue.EndToStart) {
@@ -253,7 +274,7 @@ private fun LineCard(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(shape)
+                    .clip(CardShape)
                     .background(MaterialTheme.colorScheme.error)
                     .padding(end = 24.dp),
                 contentAlignment = Alignment.CenterEnd,
@@ -266,9 +287,91 @@ private fun LineCard(
             }
         },
     ) {
+        content()
+    }
+}
+
+/** One extra cost: a name, an amount without VAT, and whether it is paid once per batch or per unit. */
+@Composable
+private fun ExtraCard(
+    extra: ExtraForm,
+    errors: ExtraErrors?,
+    onNameChange: (String) -> Unit,
+    onAmountChange: (String) -> Unit,
+    onPerChange: (ExtraCostPer) -> Unit,
+    onRemove: () -> Unit,
+) {
+    SwipeToRemove(onRemove = onRemove) {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = shape,
+            shape = CardShape,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                OutlinedTextField(
+                    value = extra.name,
+                    onValueChange = onNameChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.extra_name)) },
+                    supportingText = errors?.name?.let { { Text(stringResource(it.messageRes())) } },
+                    isError = errors?.name != null,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Next,
+                    ),
+                    colors = costingFieldColors(),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
+                    NumberField(
+                        value = extra.amount,
+                        onValueChange = onAmountChange,
+                        label = R.string.extra_amount,
+                        error = errors?.amount,
+                        suffix = stringResource(R.string.currency_symbol),
+                        modifier = Modifier.weight(1f),
+                    )
+                    OptionDropdown(
+                        selected = extra.per,
+                        options = ExtraCostPer.entries,
+                        optionLabel = { stringResource(it.labelRes()) },
+                        onSelect = onPerChange,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@StringRes
+private fun ExtraCostPer.labelRes(): Int = when (this) {
+    ExtraCostPer.BATCH -> R.string.extra_per_batch
+    ExtraCostPer.UNIT -> R.string.extra_per_unit
+}
+
+@Composable
+private fun LineCard(
+    line: LineForm,
+    result: LineResult,
+    info: RowInfo,
+    errors: RowErrors?,
+    catalogue: List<CatalogueItem>,
+    onQueryChange: (String) -> Unit,
+    onPick: (CatalogueItem) -> Unit,
+    onQuantityChange: (String) -> Unit,
+    onUnitChange: (MeasureUnit) -> Unit,
+    onWasteChange: (String) -> Unit,
+    onRemove: () -> Unit,
+) {
+    SwipeToRemove(onRemove = onRemove) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = CardShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         ) {
@@ -451,12 +554,30 @@ private fun UnitDropdown(
     onSelect: (MeasureUnit) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    OptionDropdown(
+        selected = selected,
+        options = units,
+        optionLabel = { stringResource(it.labelRes) },
+        onSelect = onSelect,
+        modifier = modifier,
+    )
+}
+
+/** A button that shows the chosen option and opens a menu with all of them. */
+@Composable
+private fun <T> OptionDropdown(
+    selected: T,
+    options: List<T>,
+    optionLabel: @Composable (T) -> String,
+    onSelect: (T) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     var expanded by remember { mutableStateOf(false) }
     // The top padding matches the space the floating label takes above a text field, so both line up.
     Box(modifier.padding(top = 8.dp)) {
         OutlinedButton(
             onClick = { expanded = true },
-            enabled = units.size > 1,
+            enabled = options.size > 1,
             colors = ButtonDefaults.outlinedButtonColors(
                 containerColor = MaterialTheme.colorScheme.surface,
                 disabledContainerColor = MaterialTheme.colorScheme.surface,
@@ -466,14 +587,14 @@ private fun UnitDropdown(
                 .height(56.dp),
             shape = RoundedCornerShape(4.dp),
         ) {
-            Text(stringResource(selected.labelRes), maxLines = 1)
+            Text(optionLabel(selected), maxLines = 1)
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            units.forEach { unit ->
+            options.forEach { option ->
                 DropdownMenuItem(
-                    text = { Text(stringResource(unit.labelRes)) },
+                    text = { Text(optionLabel(option)) },
                     onClick = {
-                        onSelect(unit)
+                        onSelect(option)
                         expanded = false
                     },
                 )
@@ -503,9 +624,13 @@ private fun TotalsCard(result: EditorResult) {
 @Composable
 private fun PricingSection(
     fields: PriceFields,
+    vat: String,
+    vatError: FieldError?,
     onPriceChange: (String) -> Unit,
     onMarkupChange: (String) -> Unit,
     onFoodCostChange: (String) -> Unit,
+    onVatChange: (String) -> Unit,
+    onPriceWithVatChange: (String) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SectionTitle(R.string.pricing_title)
@@ -547,6 +672,24 @@ private fun PricingSection(
                 label = R.string.pricing_food_cost,
                 error = null,
                 suffix = stringResource(R.string.percent_symbol),
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            NumberField(
+                value = vat,
+                onValueChange = onVatChange,
+                label = R.string.pricing_vat,
+                error = vatError,
+                suffix = stringResource(R.string.percent_symbol),
+                modifier = Modifier.weight(1f),
+            )
+            NumberField(
+                value = fields.priceWithVat,
+                onValueChange = onPriceWithVatChange,
+                label = R.string.pricing_price_with_vat,
+                error = null,
+                suffix = stringResource(R.string.currency_symbol),
                 modifier = Modifier.weight(1f),
             )
         }
@@ -639,4 +782,5 @@ private fun FieldError.messageRes(): Int = when (this) {
     FieldError.NOT_IN_CATALOGUE -> R.string.error_pick_ingredient
     FieldError.UNIT_MISMATCH -> R.string.error_unit_mismatch
     FieldError.CYCLE -> R.string.error_cycle
+    FieldError.VAT_RANGE -> R.string.error_vat_range
 }

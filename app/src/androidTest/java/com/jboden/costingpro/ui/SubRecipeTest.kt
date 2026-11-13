@@ -33,6 +33,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
+import org.junit.rules.RuleChain
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -40,10 +41,15 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class SubRecipeTest {
 
-    @get:Rule
-    val compose = createComposeRule()
+    private val databaseRule = InMemoryDatabaseRule()
+    private val compose = createComposeRule()
 
-    private lateinit var database: CostingDatabase
+    // The database is closed last, after the screens and the view models have stopped using it.
+    @get:Rule
+    val rules: RuleChain = RuleChain.outerRule(databaseRule).around(compose)
+
+    private val database get() = databaseRule.database
+
     private lateinit var container: AppContainer
     private var sauceId = 0L
     private var dishId = 0L
@@ -51,7 +57,6 @@ class SubRecipeTest {
     @Before
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        database = Room.inMemoryDatabaseBuilder(context, CostingDatabase::class.java).build()
         container = AppContainer({ database }, { PhotoStore(context) })
         runBlocking {
             val ids = database.ingredientDao().insertAll(
@@ -89,11 +94,6 @@ class SubRecipeTest {
         compose.setContent {
             CostingProTheme { CostingProApp(container) }
         }
-    }
-
-    @After
-    fun tearDown() {
-        database.close()
     }
 
     private fun waitForText(text: String) {
@@ -222,7 +222,7 @@ class SubRecipeTest {
     @Test
     fun theEditorDoesNotOfferARecipeThatWouldContainItself() {
         fun offered(recipeId: Long): List<String> {
-            val viewModel = RecipeEditViewModel(container.recipeRepository, container.ingredientRepository, recipeId)
+            val viewModel = databaseRule.track(RecipeEditViewModel(container.recipeRepository, container.ingredientRepository, container.settings, recipeId))
             val state = runBlocking { withTimeout(5_000) { viewModel.uiState.first { !it.loading } } }
             return state.catalogue.filter { it.isRecipe }.map { it.name }
         }
@@ -235,7 +235,7 @@ class SubRecipeTest {
 
     @Test
     fun editingARecipeThatUsesASauceLoadsTheSauceRow() {
-        val viewModel = RecipeEditViewModel(container.recipeRepository, container.ingredientRepository, dishId)
+        val viewModel = databaseRule.track(RecipeEditViewModel(container.recipeRepository, container.ingredientRepository, container.settings, dishId))
 
         val state = runBlocking { withTimeout(5_000) { viewModel.uiState.first { !it.loading } } }
 

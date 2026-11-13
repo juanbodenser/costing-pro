@@ -40,6 +40,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
+import org.junit.rules.RuleChain
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -47,18 +48,22 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class RecipeListDetailTest {
 
+    private val databaseRule = InMemoryDatabaseRule()
+    private val compose = createComposeRule()
+
+    // The database is closed last, after the screens and the view models have stopped using it.
     @get:Rule
-    val compose = createComposeRule()
+    val rules: RuleChain = RuleChain.outerRule(databaseRule).around(compose)
+
+    private val database get() = databaseRule.database
 
     private val appContext = ApplicationProvider.getApplicationContext<android.content.Context>()
-    private lateinit var database: CostingDatabase
     private lateinit var container: AppContainer
     private lateinit var photos: PhotoStore
     private var cookiesId = 0L
 
     @Before
     fun setUp() {
-        database = Room.inMemoryDatabaseBuilder(appContext, CostingDatabase::class.java).build()
         photos = PhotoStore(appContext)
         container = AppContainer(createDatabase = { database }, createPhotoStore = { photos })
         runBlocking {
@@ -100,7 +105,6 @@ class RecipeListDetailTest {
 
     @After
     fun tearDown() {
-        database.close()
         File(appContext.filesDir, "photos").deleteRecursively()
     }
 
@@ -123,7 +127,7 @@ class RecipeListDetailTest {
     }
 
     private fun detailViewModel() =
-        RecipeDetailViewModel(container.recipeRepository, container.ingredientRepository, photos, cookiesId)
+        databaseRule.track(RecipeDetailViewModel(container.recipeRepository, container.ingredientRepository, photos, cookiesId))
 
     private fun storedPhotoPath(): String? =
         runBlocking { container.recipeRepository.get(cookiesId) }?.recipe?.photoPath
@@ -172,8 +176,8 @@ class RecipeListDetailTest {
         compose.onNodeWithText("Harina").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("0,45 €").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("500 g").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Extras").performScrollTo().assertIsDisplayed()
-        // Mantequilla, Chocolate and Extras each cost 2,00 € of 7,19 €.
+        compose.onNodeWithText("Bolsa").performScrollTo().assertIsDisplayed()
+        // Mantequilla, Chocolate and the bag each cost 2,00 € of 7,19 €.
         assertEquals(3, compose.onAllNodesWithText("27,8 %").fetchSemanticsNodes().size)
     }
 

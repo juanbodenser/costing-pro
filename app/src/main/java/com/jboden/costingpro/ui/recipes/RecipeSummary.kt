@@ -30,6 +30,8 @@ data class BreakdownRow(
     val sharePct: BigDecimal?,
     /** The row uses another recipe instead of a catalogue ingredient. */
     val isSubRecipe: Boolean = false,
+    /** The row is an extra cost of the recipe, not an ingredient. */
+    val isExtra: Boolean = false,
 )
 
 /** A stored recipe with everything the list and the detail screen show, already costed. */
@@ -92,13 +94,21 @@ object RecipeSummaryLogic {
                 isSubRecipe = item.isSubRecipe,
             )
         }
-        val extrasRow = BreakdownRow(
-            name = null,
-            quantity = null,
-            unit = null,
-            cost = cost.extrasCost,
-            sharePct = CostCalculator.sharePct(cost.extrasCost, cost.batchCost),
-        ).takeIf { cost.extrasCost.signum() != 0 }
+        // Each extra with what it adds to the whole batch, so the shares still add up to 100 %.
+        val extraRows = details.extras.map { extra ->
+            val amount = CostCalculator.extraBatchCost(
+                ExtraCostInput(BigDecimal.valueOf(extra.amount), extra.per),
+                yieldQuantity ?: BigDecimal.ZERO,
+            )
+            BreakdownRow(
+                name = extra.name,
+                quantity = null,
+                unit = null,
+                cost = amount,
+                sharePct = CostCalculator.sharePct(amount, cost.batchCost),
+                isExtra = true,
+            )
+        }
 
         return RecipeSummary(
             id = recipe.id,
@@ -109,7 +119,7 @@ object RecipeSummaryLogic {
             cost = cost,
             price = price,
             status = price?.foodCostPct?.let(MarginStatus::fromFoodCost),
-            breakdown = rows + listOfNotNull(extrasRow),
+            breakdown = rows + extraRows,
         )
     }
 

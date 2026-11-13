@@ -1,11 +1,11 @@
 package com.jboden.costingpro.ui.recipes
 
-import com.jboden.costingpro.data.ExtraCost
 import com.jboden.costingpro.data.Ingredient
 import com.jboden.costingpro.data.RecipeWithDetails
 import com.jboden.costingpro.data.toPrice
 import com.jboden.costingpro.domain.CostCalculator
 import com.jboden.costingpro.domain.ExtraCostInput
+import com.jboden.costingpro.domain.ExtraCostPer
 import com.jboden.costingpro.domain.LineInput
 import com.jboden.costingpro.domain.LineIssue
 import com.jboden.costingpro.domain.LineSource
@@ -46,16 +46,52 @@ data class LineForm(
     val hasSource: Boolean get() = ingredientId != null || subRecipeId != null
 }
 
+/** A cost that is not an ingredient (a bag, labour), with its numbers as typed. */
+data class ExtraForm(
+    /** Identifies the row on screen; not stored. */
+    val key: Long,
+    val name: String = "",
+    val amount: String = "",
+    val per: ExtraCostPer = ExtraCostPer.BATCH,
+) {
+    /** Nothing typed: a row the user added but never used. */
+    val isEmpty: Boolean get() = name.isBlank() && amount.isBlank()
+}
+
+/** The four linked price fields; whichever the user typed in last drives the other three. */
+enum class PriceField {
+    NET_PRICE,
+    MARKUP,
+    FOOD_COST,
+
+    /** The price with VAT: typing it sets the net price to PVP divided by (1 + VAT). */
+    PRICE_WITH_VAT;
+
+    companion object {
+        fun of(mode: PricingMode): PriceField = when (mode) {
+            PricingMode.PRICE -> NET_PRICE
+            PricingMode.MARKUP -> MARKUP
+            PricingMode.FOOD_COST -> FOOD_COST
+        }
+    }
+}
+
 data class RecipeForm(
     val name: String = "",
     val yieldQuantity: String = "",
     val yieldUnit: MeasureUnit = MeasureUnit.UD,
     val lines: List<LineForm> = emptyList(),
-    /** The price field the user typed in last; the other two are computed from it. */
-    val pricingMode: PricingMode = PricingMode.PRICE,
-    /** Text of the field named by [pricingMode]. */
+    val extras: List<ExtraForm> = emptyList(),
+    /** VAT of the selling price, in percent. */
+    val vatPct: String = "10",
+    /** The price field the user typed in last; the other three are computed from it. */
+    val priceField: PriceField = PriceField.NET_PRICE,
+    /** Text of the field named by [priceField]. */
     val pricingText: String = "",
 )
+
+/** What is stored for the price: the figure the user fixed and its value. */
+data class StoredPricing(val mode: PricingMode, val value: Double)
 
 /** Cost of one row. [cost] is null until the row is complete, or when it has an [issue]. */
 data class LineResult(
@@ -65,8 +101,8 @@ data class LineResult(
     val issue: LineIssue?,
 )
 
-/** Text of the three linked price fields. */
-data class PriceFields(val price: String, val markup: String, val foodCost: String)
+/** Text of the four linked price fields. */
+data class PriceFields(val price: String, val markup: String, val foodCost: String, val priceWithVat: String)
 
 data class EditorResult(
     /** Same order as the form rows. */
@@ -80,7 +116,7 @@ data class EditorResult(
     val status: MarginStatus?,
 )
 
-enum class FieldError { REQUIRED, NUMBER, QUANTITY_ZERO, WASTE_RANGE, NOT_IN_CATALOGUE, UNIT_MISMATCH, CYCLE }
+enum class FieldError { REQUIRED, NUMBER, QUANTITY_ZERO, WASTE_RANGE, NOT_IN_CATALOGUE, UNIT_MISMATCH, CYCLE, VAT_RANGE }
 
 data class RowErrors(
     val ingredient: FieldError? = null,
@@ -91,6 +127,10 @@ data class RowErrors(
     val any: Boolean get() = ingredient != null || quantity != null || waste != null || unit != null
 }
 
+data class ExtraErrors(val name: FieldError? = null, val amount: FieldError? = null) {
+    val any: Boolean get() = name != null || amount != null
+}
+
 data class Validation(
     val nameError: FieldError?,
     /** No usable row at all. */
@@ -99,8 +139,14 @@ data class Validation(
     val rowErrors: Map<Long, RowErrors>,
     /** The rows that would be saved: the form rows without the empty ones. */
     val lines: List<LineForm>,
+    val vatError: FieldError? = null,
+    /** Errors by extra key; only extras with some error. */
+    val extraErrors: Map<Long, ExtraErrors> = emptyMap(),
+    /** The extras that would be saved: the form extras without the empty ones. */
+    val extras: List<ExtraForm> = emptyList(),
 ) {
-    val ok: Boolean get() = nameError == null && !noLines && rowErrors.isEmpty()
+    val ok: Boolean
+        get() = nameError == null && !noLines && rowErrors.isEmpty() && vatError == null && extraErrors.isEmpty()
 }
 
 /** What a row is made of, once found in the catalogue or among the recipes. */
@@ -121,6 +167,9 @@ object RecipeEditorLogic {
 
     /** Highest waste a row accepts (PLAN.md: 0 to 99). */
     private val MAX_WASTE_PCT = BigDecimal(99)
+
+    /** Highest VAT the form accepts. */
+    private val MAX_VAT_PCT = BigDecimal(100)
 
     /** Unit proposed when an ingredient or recipe priced in [unit] is picked: g, ml, ud or ración. */
     fun defaultUnit(unit: MeasureUnit): MeasureUnit = when (unit.magnitude) {
@@ -154,15 +203,12 @@ object RecipeEditorLogic {
     /**
      * Costs, price fields and margin for the current form.
      *
-     * @param extras the recipe's stored extra costs; the editor does not show them yet but they count.
      * @param recipes all stored recipes, for rows that use a recipe.
      * @param selfId the recipe being edited (0 if new): it cannot be used as a sub-recipe of itself.
      */
     fun derive(
         form: RecipeForm,
         catalogue: Map<Long, Ingredient>,
-        extras: List<ExtraCost>,
-        vatPct: Double,
         recipes: Map<Long, RecipeWithDetails> = emptyMap(),
         selfId: Long = RecipeGraph.NO_RECIPE,
     ): EditorResult {
@@ -182,7 +228,9 @@ object RecipeEditorLogic {
                 yieldQuantity = yieldQuantity ?: BigDecimal.ZERO,
                 yieldUnit = form.yieldUnit,
                 lines = inputs,
-                extras = extras.map { ExtraCostInput(BigDecimal.valueOf(it.amount), it.per) },
+                extras = form.extras.mapNotNull { extra ->
+                    Formats.parseDecimal(extra.amount)?.let { ExtraCostInput(it, extra.per) }
+                },
             ),
         )
 
@@ -202,20 +250,27 @@ object RecipeEditorLogic {
             }
         }
 
-        val typedValue = Formats.parseDecimal(form.pricingText)
-        val price = typedValue?.let {
+        val vat = Formats.parseDecimal(form.vatPct)
+        val stored = storedPricing(form)
+        val price = stored?.let {
             CostCalculator.price(
                 unitCost = cost.unitCost,
-                pricing = Pricing(form.pricingMode, it, BigDecimal.valueOf(vatPct)),
+                pricing = Pricing(it.mode, BigDecimal.valueOf(it.value), vat ?: BigDecimal.ZERO),
                 yieldQuantity = yieldQuantity ?: BigDecimal.ZERO,
             )
         }
 
-        // The field being typed in keeps its text exactly; the other two show the computed value.
+        // The field being typed in keeps its text exactly; the other three show the computed value.
+        // Without a valid VAT the price with VAT is unknown, so its field stays blank.
         val fields = PriceFields(
-            price = if (form.pricingMode == PricingMode.PRICE) form.pricingText else money(price?.netPrice),
-            markup = if (form.pricingMode == PricingMode.MARKUP) form.pricingText else percent(price?.markupPct),
-            foodCost = if (form.pricingMode == PricingMode.FOOD_COST) form.pricingText else percent(price?.foodCostPct),
+            price = if (form.priceField == PriceField.NET_PRICE) form.pricingText else money(price?.netPrice),
+            markup = if (form.priceField == PriceField.MARKUP) form.pricingText else percent(price?.markupPct),
+            foodCost = if (form.priceField == PriceField.FOOD_COST) form.pricingText else percent(price?.foodCostPct),
+            priceWithVat = when {
+                form.priceField == PriceField.PRICE_WITH_VAT -> form.pricingText
+                vat == null -> ""
+                else -> money(price?.priceWithVat)
+            },
         )
 
         return EditorResult(
@@ -226,6 +281,23 @@ object RecipeEditorLogic {
             fields = fields,
             status = price?.foodCostPct?.let(MarginStatus::fromFoodCost),
         )
+    }
+
+    /**
+     * The price as it is stored, or null if no valid price has been typed. A price with VAT is stored
+     * as the net price it implies, because only the net price, markup and food cost are kept.
+     */
+    fun storedPricing(form: RecipeForm): StoredPricing? {
+        val typed = Formats.parseDecimal(form.pricingText) ?: return null
+        return when (form.priceField) {
+            PriceField.NET_PRICE -> StoredPricing(PricingMode.PRICE, typed.toDouble())
+            PriceField.MARKUP -> StoredPricing(PricingMode.MARKUP, typed.toDouble())
+            PriceField.FOOD_COST -> StoredPricing(PricingMode.FOOD_COST, typed.toDouble())
+            PriceField.PRICE_WITH_VAT -> {
+                val vat = Formats.parseDecimal(form.vatPct) ?: return null
+                CostCalculator.netPriceFromPriceWithVat(typed, vat)?.let { StoredPricing(PricingMode.PRICE, it.toDouble()) }
+            }
+        }
     }
 
     /** What stops the form from being saved: a title and at least one valid row are required. */
@@ -243,13 +315,38 @@ object RecipeEditorLogic {
                 if (errors.any) put(line.key, errors)
             }
         }
+        val keptExtras = form.extras.filterNot { it.isEmpty }
+        val extraErrors = buildMap {
+            keptExtras.forEach { extra ->
+                val errors = extraErrors(extra)
+                if (errors.any) put(extra.key, errors)
+            }
+        }
+        val vat = Formats.parseDecimal(form.vatPct)
         return Validation(
             nameError = if (form.name.isBlank()) FieldError.REQUIRED else null,
             noLines = kept.isEmpty(),
             rowErrors = rowErrors,
             lines = kept,
+            vatError = when {
+                form.vatPct.isBlank() -> FieldError.REQUIRED
+                vat == null -> FieldError.NUMBER
+                vat > MAX_VAT_PCT -> FieldError.VAT_RANGE
+                else -> null
+            },
+            extraErrors = extraErrors,
+            extras = keptExtras,
         )
     }
+
+    private fun extraErrors(extra: ExtraForm) = ExtraErrors(
+        name = if (extra.name.isBlank()) FieldError.REQUIRED else null,
+        amount = when {
+            extra.amount.isBlank() -> FieldError.REQUIRED
+            Formats.parseDecimal(extra.amount) == null -> FieldError.NUMBER
+            else -> null
+        },
+    )
 
     private fun rowErrors(line: LineForm, source: Source?, selfId: Long, graph: Map<Long, Set<Long>>): RowErrors {
         val quantity = Formats.parseDecimal(line.quantity)

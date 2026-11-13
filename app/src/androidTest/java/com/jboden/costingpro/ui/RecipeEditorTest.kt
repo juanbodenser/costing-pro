@@ -23,6 +23,7 @@ import com.jboden.costingpro.data.RecipeLine
 import com.jboden.costingpro.domain.ExtraCostPer
 import com.jboden.costingpro.domain.MeasureUnit
 import com.jboden.costingpro.domain.PricingMode
+import com.jboden.costingpro.ui.recipes.PriceField
 import com.jboden.costingpro.ui.recipes.RecipeEditViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -31,6 +32,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
+import org.junit.rules.RuleChain
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -38,18 +40,19 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class RecipeEditorTest {
 
-    @get:Rule
-    val compose = createComposeRule()
+    private val databaseRule = InMemoryDatabaseRule()
+    private val compose = createComposeRule()
 
-    private lateinit var database: CostingDatabase
+    // The database is closed last, after the screens and the view models have stopped using it.
+    @get:Rule
+    val rules: RuleChain = RuleChain.outerRule(databaseRule).around(compose)
+
+    private val database get() = databaseRule.database
+
     private lateinit var container: AppContainer
 
     @Before
     fun setUp() {
-        database = Room.inMemoryDatabaseBuilder(
-            ApplicationProvider.getApplicationContext(),
-            CostingDatabase::class.java,
-        ).build()
         container = AppContainer(
             createDatabase = { database },
             createPhotoStore = { PhotoStore(ApplicationProvider.getApplicationContext()) },
@@ -70,11 +73,6 @@ class RecipeEditorTest {
         compose.setContent {
             com.jboden.costingpro.ui.theme.CostingProTheme { CostingProApp(container) }
         }
-    }
-
-    @After
-    fun tearDown() {
-        database.close()
     }
 
     private fun waitForText(text: String) {
@@ -206,13 +204,13 @@ class RecipeEditorTest {
                 extras = listOf(ExtraCost(name = "Bolsa", amount = 0.05, per = ExtraCostPer.UNIT)),
             )
         }
-        val viewModel = RecipeEditViewModel(container.recipeRepository, container.ingredientRepository, recipeId)
+        val viewModel = databaseRule.track(RecipeEditViewModel(container.recipeRepository, container.ingredientRepository, container.settings, recipeId))
 
         val loaded = runBlocking { viewModel.uiState.first { !it.loading } }
 
         assertEquals("Pan", loaded.form.name)
         assertEquals("10", loaded.form.yieldQuantity)
-        assertEquals(PricingMode.MARKUP, loaded.form.pricingMode)
+        assertEquals(PriceField.MARKUP, loaded.form.priceField)
         assertEquals("200", loaded.form.pricingText)
         assertEquals("Harina", loaded.form.lines.single().query)
         assertEquals("1", loaded.form.lines.single().quantity)
